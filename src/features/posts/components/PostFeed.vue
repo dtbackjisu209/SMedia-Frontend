@@ -1,13 +1,64 @@
 <script setup lang="ts">
 import dayjs from 'dayjs'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePostsStore } from '@/features/posts/store/posts.store'
+import { useAuthStore } from '@/features/auth/store/auth.store'
+import { useFollowStore } from '@/features/auth/store/follow.store'
+import type { Post } from '@/shared/types/social'
 
 const postsStore = usePostsStore()
+const authStore = useAuthStore()
+const followStore = useFollowStore()
 const router = useRouter()
+const followLoadingUserId = ref<number | null>(null)
+const followError = ref('')
+
+const myUserId = computed(() => Number(authStore.userId ?? 0))
+
+onMounted(async () => {
+  if (!myUserId.value) return
+  try {
+    await followStore.loadMyFollowing(myUserId.value)
+  } catch (error) {
+    followError.value = error instanceof Error ? error.message : 'Could not load follow status.'
+  }
+})
 
 function openPostDetail(postId: string) {
   router.push(`/posts/${postId}`)
+}
+
+function authorId(post: Post): number {
+  return Number(post.author.id)
+}
+
+function canFollow(post: Post): boolean {
+  const id = authorId(post)
+  return Boolean(myUserId.value && id && id !== myUserId.value)
+}
+
+function followLabel(post: Post): string {
+  const id = authorId(post)
+  if (followStore.isFollowing(id)) return 'Following'
+  if (followStore.isPending(id)) return 'Requested'
+  return 'Follow'
+}
+
+async function toggleFollow(post: Post): Promise<void> {
+  const id = authorId(post)
+  if (!id || followLoadingUserId.value === id) return
+
+  followError.value = ''
+  followLoadingUserId.value = id
+
+  try {
+    await followStore.toggleFollow(id)
+  } catch (error) {
+    followError.value = error instanceof Error ? error.message : 'Follow action failed.'
+  } finally {
+    followLoadingUserId.value = null
+  }
 }
 </script>
 
@@ -15,6 +66,7 @@ function openPostDetail(postId: string) {
   <section class="feed-wrap">
     <h3 class="section-title">Latest Posts</h3>
     <p v-if="postsStore.errorMessage" class="error">{{ postsStore.errorMessage }}</p>
+    <p v-if="followError" class="error">{{ followError }}</p>
     <p v-if="postsStore.isLoading" class="muted">Loading posts...</p>
     <p v-else-if="postsStore.posts.length === 0" class="empty muted">
       Your feed is empty. Be the first one to publish a post.
@@ -29,7 +81,18 @@ function openPostDetail(postId: string) {
               <p class="time muted">{{ dayjs(post.createdAt).format('HH:mm DD/MM/YYYY') }}</p>
             </div>
           </div>
-          <button class="more" type="button" @click.stop>...</button>
+          <div class="head-actions">
+            <button
+              v-if="canFollow(post)"
+              class="action action--follow"
+              type="button"
+              :disabled="followLoadingUserId === authorId(post)"
+              @click.stop="toggleFollow(post)"
+            >
+              {{ followLoadingUserId === authorId(post) ? 'Loading...' : followLabel(post) }}
+            </button>
+            <button class="more" type="button" @click.stop>...</button>
+          </div>
         </header>
 
         <img v-if="post.thumbnail" :src="post.thumbnail" class="media" alt="Post thumbnail" loading="lazy" />
@@ -73,6 +136,12 @@ function openPostDetail(postId: string) {
   justify-content: space-between;
   align-items: center;
   padding: 12px;
+  gap: 8px;
+}
+
+.head-actions {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
@@ -155,6 +224,10 @@ function openPostDetail(postId: string) {
   cursor: pointer;
   font: inherit;
   font-size: 12px;
+}
+
+.action--follow {
+  font-weight: 600;
 }
 
 .empty {
