@@ -3,6 +3,7 @@ const navItems = [
   { to: '/', label: 'Feed', icon: 'F' },
   { to: '/notifications', label: 'Notifications', icon: 'N' },
   { to: '/chat', label: 'Chat', icon: 'C' },
+  { to: '/profile-standalone', label: 'Profile', icon: 'P' },
 ]
 </script>
 

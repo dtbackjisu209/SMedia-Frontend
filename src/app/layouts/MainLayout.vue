@@ -48,11 +48,11 @@ import AppSidebar from '@/shared/components/AppSidebar.vue'
 <style scoped>
 .layout-container {
   min-height: 100vh;
-  padding: 0 24px 24px;
+  padding: 0 2cm 24px;
 }
 
 .shell {
-  max-width: 1200px;
+  max-width: none;
   margin: 0 auto;
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr) 300px;
@@ -62,7 +62,6 @@ import AppSidebar from '@/shared/components/AppSidebar.vue'
 
 .content {
   min-height: 74vh;
-  max-width: 640px;
   width: 100%;
 }
 
