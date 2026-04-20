@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import CreatePostForm from '@/features/posts/components/CreatePostForm.vue'
 import PostFeed from '@/features/posts/components/PostFeed.vue'
 import { usePostsStore } from '@/features/posts/store/posts.store'
+import StoryBar from '@/features/stories/components/StoryBar.vue'
 
 const postsStore = usePostsStore()
 const isCreateModalOpen = ref(false)
@@ -22,12 +23,8 @@ function closeCreateModal() {
 
 <template>
   <section class="feed-page">
-    <section class="card stories">
-      <button v-for="index in 8" :key="index" class="story-item" type="button">
-        <span class="story-avatar"></span>
-        <span class="story-name">story{{ index }}</span>
-      </button>
-    </section>
+    <!-- Khu v?c StoryBar ch�nh th?c -->
+    <StoryBar />
 
     <button class="create-trigger" type="button" @click="openCreateModal">+</button>
 
@@ -47,45 +44,6 @@ function closeCreateModal() {
   gap: 14px;
 }
 
-.stories {
-  display: flex;
-  gap: 12px;
-  overflow-x: auto;
-  padding: 14px;
-}
-
-.story-item {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  display: grid;
-  gap: 6px;
-  justify-items: center;
-  min-width: 70px;
-  padding: 0;
-}
-
-.story-avatar {
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  background: var(--story-ring);
-  position: relative;
-}
-
-.story-avatar::after {
-  content: '';
-  position: absolute;
-  inset: 2px;
-  border-radius: 50%;
-  background: #fff;
-}
-
-.story-name {
-  font-size: 12px;
-  color: var(--muted);
-}
-
 .create-trigger {
   position: fixed;
   right: 24px;
@@ -98,43 +56,21 @@ function closeCreateModal() {
   color: #fff;
   font-size: 36px;
   line-height: 1;
-  cursor: pointer;
-  box-shadow: 0 12px 24px rgba(0, 149, 246, 0.35);
-  z-index: 30;
+  z-index: 40;
 }
 
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 40;
   background: rgba(0, 0, 0, 0.5);
-  display: grid;
-  place-items: center;
-  padding: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
 }
 
 .modal-card {
-  width: min(640px, 100%);
-  max-height: 92vh;
-  overflow: auto;
-}
-
-@media (max-width: 900px) {
-  .stories {
-    padding: 10px;
-    gap: 10px;
-  }
-
-  .story-avatar {
-    width: 52px;
-    height: 52px;
-  }
-
-  .create-trigger {
-    right: 16px;
-    bottom: 88px;
-    width: 52px;
-    height: 52px;
-  }
+  width: 100%;
+  max-width: 500px;
 }
 </style>
