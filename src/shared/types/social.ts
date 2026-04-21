@@ -31,9 +31,13 @@ export interface Post {
 
 export interface NotificationItem {
   id: string
+  type: string
   content: string
+  referenceId?: string | null
   createdAt: string
   read: boolean
+  targetPath: string | null
+  kindLabel: string
 }
 
 export interface ChatMessage {
