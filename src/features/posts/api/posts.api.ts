@@ -14,9 +14,19 @@ interface BackendAuthor {
 interface BackendMedia {
   mediaUrl?: string
   media_url?: string
+  secure_url?: string
+  url?: string
+  file_url?: string
   mediaType?: 'image' | 'video'
   media_type?: 'image' | 'video'
+  type?: string
+  resource_type?: string
+  mimeType?: string
+  mime_type?: string
   position?: number
+  order?: number
+  index?: number
+  media?: BackendMedia
 }
 
 interface BackendPost {
@@ -32,6 +42,9 @@ interface BackendPost {
   thumbnail?: string
   media_count?: number
   media?: BackendMedia[]
+  medias?: BackendMedia[]
+  post_media?: BackendMedia[]
+  postMedias?: BackendMedia[]
   is_liked?: boolean
   isLiked?: boolean
   liked_by_me?: boolean
@@ -48,6 +61,9 @@ interface BackendPostDetail {
   created_at?: string
   author?: BackendAuthor
   media?: BackendMedia[]
+  medias?: BackendMedia[]
+  post_media?: BackendMedia[]
+  postMedias?: BackendMedia[]
   like_count?: number
   comment_count?: number
   is_liked?: boolean
@@ -99,19 +115,82 @@ function normalizeAuthor(author?: BackendAuthor): Post['author'] {
   }
 }
 
+function inferMediaTypeFromUrl(url: string): 'image' | 'video' {
+  const normalized = url.toLowerCase()
+  if (/(\.mp4|\.mov|\.webm|\.m4v|\.m3u8|\.avi|\.wmv|\.mkv)(\?|$)/.test(normalized)) {
+    return 'video'
+  }
+
+  return 'image'
+}
+
+function resolveMediaUrl(item: BackendMedia): string {
+  return item.mediaUrl ?? item.media_url ?? item.secure_url ?? item.url ?? item.file_url ?? ''
+}
+
+function resolveMediaType(item: BackendMedia, mediaUrl: string): 'image' | 'video' {
+  const rawType =
+    item.mediaType ?? item.media_type ?? item.type ?? item.resource_type ?? item.mimeType ?? item.mime_type ?? ''
+  const normalizedType = String(rawType).toLowerCase()
+
+  if (normalizedType.includes('video')) return 'video'
+  if (normalizedType.includes('image')) return 'image'
+
+  return inferMediaTypeFromUrl(mediaUrl)
+}
+
+function resolvePosition(item: BackendMedia, index: number): number {
+  if (typeof item.position === 'number') return item.position
+  if (typeof item.order === 'number') return item.order
+  if (typeof item.index === 'number') return item.index
+
+  const rawPosition = (item as { position?: string }).position
+  const parsed = Number(rawPosition)
+  return Number.isFinite(parsed) ? parsed : index
+}
+
+function extractPostMedia(post: BackendPost | BackendPostDetail): BackendMedia[] {
+  if (Array.isArray(post.media)) return post.media
+  if (Array.isArray(post.medias)) return post.medias
+  if (Array.isArray(post.post_media)) return post.post_media
+  if (Array.isArray(post.postMedias)) return post.postMedias
+  return []
+}
+
 function normalizeMedia(media?: BackendMedia[]): Post['media'] {
   if (!Array.isArray(media)) return []
 
-  return media.map((item, index) => ({
-    mediaUrl: item.mediaUrl ?? item.media_url ?? '',
-    mediaType: item.mediaType ?? item.media_type ?? 'image',
-    position: typeof item.position === 'number' ? item.position : index,
-  }))
+  return media
+    .map((item, index) => {
+      const base = item?.media ? item.media : item
+      const mediaUrl = resolveMediaUrl(base)
+      if (!mediaUrl) return null
+
+      return {
+        mediaUrl,
+        mediaType: resolveMediaType(base, mediaUrl),
+        position: resolvePosition(base, index),
+      }
+    })
+    .filter((item): item is Post['media'][number] => Boolean(item))
 }
 
 function normalizePost(post: BackendPost): Post {
-  const normalizedMedia = normalizeMedia(post.media)
-  const fallbackThumbnail = normalizedMedia[0]?.mediaUrl ?? ''
+  let normalizedMedia = normalizeMedia(extractPostMedia(post))
+
+  if (normalizedMedia.length === 0 && post.thumbnail) {
+    normalizedMedia = [
+      {
+        mediaUrl: post.thumbnail,
+        mediaType: inferMediaTypeFromUrl(post.thumbnail),
+        position: 0,
+      },
+    ]
+  }
+
+  // Use first image as thumbnail, not first media (could be video)
+  const fallbackThumbnail =
+    normalizedMedia.find((m) => m.mediaType === 'image')?.mediaUrl ?? ''
   const isLiked =
     typeof post.is_liked === 'boolean'
       ? post.is_liked
@@ -148,10 +227,16 @@ export async function fetchPostDetailApi(postId: string): Promise<Post> {
   const response = await http.get(`/posts/${postId}`)
   const detailData = unwrapData<BackendPostDetail>(response.data)
 
+  // Use first image as thumbnail, not first media
+  const normalizedMedia = normalizeMedia(extractPostMedia(detailData))
+  const imageMedia = normalizedMedia.find((m) => m.mediaType === 'image')
+  const thumbnailUrl = imageMedia?.mediaUrl ?? ''
+
   return normalizePost({
     ...detailData,
-    thumbnail: detailData.media?.[0]?.media_url ?? detailData.media?.[0]?.mediaUrl ?? '',
-    media_count: detailData.media?.length ?? 0,
+    media: extractPostMedia(detailData),
+    thumbnail: thumbnailUrl,
+    media_count: normalizedMedia.length,
     tags: [],
   })
 }
@@ -160,11 +245,15 @@ export async function createPostApi(payload: CreatePostInput): Promise<Post> {
   const response = await http.post('/posts', payload)
   const postData = unwrapData<BackendPost>(response.data)
 
+  // Use first image as thumbnail, not first media
+  const thumbnailUrl =
+    payload.media.find((m) => m.media_type === 'image')?.media_url ?? ''
+
   return normalizePost({
     ...postData,
     is_liked: postData.is_liked ?? false,
     media: payload.media,
-    thumbnail: payload.media[0]?.media_url ?? '',
+    thumbnail: thumbnailUrl,
     media_count: payload.media.length,
   })
 }

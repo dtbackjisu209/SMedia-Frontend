@@ -33,6 +33,13 @@ function authorId(post: Post): number {
   return Number(post.author.id)
 }
 
+function firstMedia(post: Post): Post['media'][number] | null {
+  if (!Array.isArray(post.media) || post.media.length === 0) return null
+
+  const sorted = [...post.media].sort((a, b) => a.position - b.position)
+  return sorted[0] ?? null
+}
+
 function canFollow(post: Post): boolean {
   const id = authorId(post)
   return Boolean(myUserId.value && id && id !== myUserId.value)
@@ -104,7 +111,31 @@ async function togglePostLike(post: Post): Promise<void> {
           </div>
         </header>
 
-        <img v-if="post.thumbnail" :src="post.thumbnail" class="media" alt="Post thumbnail" loading="lazy" />
+        <template v-if="firstMedia(post)">
+          <video
+            v-if="firstMedia(post)?.mediaType === 'video'"
+            class="media"
+            :src="firstMedia(post)?.mediaUrl"
+            controls
+            preload="metadata"
+            playsinline
+            @click.stop
+          ></video>
+          <img
+            v-else
+            :src="firstMedia(post)?.mediaUrl || post.thumbnail"
+            class="media"
+            alt="Post thumbnail"
+            loading="lazy"
+          />
+        </template>
+        <img
+          v-else-if="post.thumbnail"
+          :src="post.thumbnail"
+          class="media"
+          alt="Post thumbnail"
+          loading="lazy"
+        />
         <div v-else class="media media-fallback"></div>
 
         <p v-if="post.caption" class="content">{{ post.caption }}</p>
