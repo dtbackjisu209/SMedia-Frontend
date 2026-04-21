@@ -60,12 +60,21 @@ async function toggleFollow(post: Post): Promise<void> {
     followLoadingUserId.value = null
   }
 }
+
+async function togglePostLike(post: Post): Promise<void> {
+  try {
+    await postsStore.togglePostLike(post.id, post.isLiked)
+  } catch {
+    // Error state is already exposed through the store.
+  }
+}
 </script>
 
 <template>
   <section class="feed-wrap">
     <h3 class="section-title">Latest Posts</h3>
     <p v-if="postsStore.errorMessage" class="error">{{ postsStore.errorMessage }}</p>
+    <p v-if="postsStore.likeActionError" class="error">{{ postsStore.likeActionError }}</p>
     <p v-if="followError" class="error">{{ followError }}</p>
     <p v-if="postsStore.isLoading" class="muted">Loading posts...</p>
     <p v-else-if="postsStore.posts.length === 0" class="empty muted">
@@ -102,7 +111,15 @@ async function toggleFollow(post: Post): Promise<void> {
         <p v-if="post.location" class="muted location">{{ post.location }}</p>
 
         <footer class="actions">
-          <button class="action" type="button" @click.stop>Like {{ post.likeCount }}</button>
+          <button
+            class="action"
+            type="button"
+            :disabled="postsStore.isLikeLoading(post.id)"
+            @click.stop="togglePostLike(post)"
+          >
+            {{ postsStore.isLikeLoading(post.id) ? 'Loading...' : post.isLiked ? 'Unlike' : 'Like' }}
+            {{ post.likeCount }}
+          </button>
           <button class="action" type="button" @click.stop>Comment {{ post.commentCount }}</button>
           <button class="action" type="button" @click.stop>Media {{ post.mediaCount }}</button>
         </footer>

@@ -45,6 +45,17 @@ function goNextMedia() {
   if (!hasNext.value) return
   currentMediaIndex.value += 1
 }
+
+async function toggleCurrentPostLike() {
+  const post = postsStore.selectedPost
+  if (!post) return
+
+  try {
+    await postsStore.togglePostLike(post.id, post.isLiked)
+  } catch {
+    // Error state is already exposed through the store.
+  }
+}
 </script>
 
 <template>
@@ -53,6 +64,7 @@ function goNextMedia() {
 
     <p v-if="postsStore.isDetailLoading" class="muted">Loading post detail...</p>
     <p v-else-if="postsStore.errorMessage" class="error">{{ postsStore.errorMessage }}</p>
+    <p v-if="postsStore.likeActionError" class="error">{{ postsStore.likeActionError }}</p>
 
     <article v-else-if="postsStore.selectedPost" class="card detail-card">
       <header class="head">
@@ -86,6 +98,14 @@ function goNextMedia() {
       </p>
 
       <footer class="stats">
+        <button
+          class="like-btn"
+          type="button"
+          :disabled="postsStore.isLikeLoading(postsStore.selectedPost.id)"
+          @click="toggleCurrentPostLike"
+        >
+          {{ postsStore.isLikeLoading(postsStore.selectedPost.id) ? 'Loading...' : postsStore.selectedPost.isLiked ? 'Unlike' : 'Like' }}
+        </button>
         <span>Likes: {{ postsStore.selectedPost.likeCount }}</span>
         <span>Comments: {{ postsStore.selectedPost.commentCount }}</span>
         <span>Media: {{ postsStore.selectedPost.mediaCount }}</span>
@@ -173,6 +193,21 @@ function goNextMedia() {
   flex-wrap: wrap;
   color: var(--muted);
   font-size: 13px;
+}
+
+.like-btn {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+
+.like-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .error {

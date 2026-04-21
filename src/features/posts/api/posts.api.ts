@@ -32,6 +32,9 @@ interface BackendPost {
   thumbnail?: string
   media_count?: number
   media?: BackendMedia[]
+  is_liked?: boolean
+  isLiked?: boolean
+  liked_by_me?: boolean
 }
 
 interface BackendFeedResult {
@@ -47,6 +50,14 @@ interface BackendPostDetail {
   media?: BackendMedia[]
   like_count?: number
   comment_count?: number
+  is_liked?: boolean
+  isLiked?: boolean
+  liked_by_me?: boolean
+}
+
+interface PostLikeApiResult {
+  liked?: boolean
+  unliked?: boolean
 }
 
 interface UploadSignaturePayload {
@@ -101,6 +112,14 @@ function normalizeMedia(media?: BackendMedia[]): Post['media'] {
 function normalizePost(post: BackendPost): Post {
   const normalizedMedia = normalizeMedia(post.media)
   const fallbackThumbnail = normalizedMedia[0]?.mediaUrl ?? ''
+  const isLiked =
+    typeof post.is_liked === 'boolean'
+      ? post.is_liked
+      : typeof post.isLiked === 'boolean'
+        ? post.isLiked
+        : typeof post.liked_by_me === 'boolean'
+          ? post.liked_by_me
+          : false
 
   return {
     id: String(post.id ?? ''),
@@ -108,6 +127,7 @@ function normalizePost(post: BackendPost): Post {
     location: post.location ?? '',
     createdAt: post.createdAt ?? post.created_at ?? new Date().toISOString(),
     author: normalizeAuthor(post.author),
+    isLiked,
     likeCount: Number(post.like_count ?? 0),
     commentCount: Number(post.comment_count ?? 0),
     tags: Array.isArray(post.tags) ? post.tags : [],
@@ -142,10 +162,23 @@ export async function createPostApi(payload: CreatePostInput): Promise<Post> {
 
   return normalizePost({
     ...postData,
+    is_liked: postData.is_liked ?? false,
     media: payload.media,
     thumbnail: payload.media[0]?.media_url ?? '',
     media_count: payload.media.length,
   })
+}
+
+export async function likePostApi(postId: string): Promise<{ liked: boolean }> {
+  const response = await http.post(`/post-likes/${postId}`)
+  const result = unwrapData<PostLikeApiResult>(response.data)
+  return { liked: Boolean(result?.liked) }
+}
+
+export async function unlikePostApi(postId: string): Promise<{ unliked: boolean }> {
+  const response = await http.delete(`/post-likes/${postId}`)
+  const result = unwrapData<PostLikeApiResult>(response.data)
+  return { unliked: Boolean(result?.unliked) }
 }
 
 export async function getUploadSignatureApi(): Promise<UploadSignaturePayload> {
