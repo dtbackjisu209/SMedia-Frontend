@@ -58,6 +58,7 @@ interface BackendPostDetail {
   id?: string | number
   caption?: string | null
   location?: string | null
+  tags?: string[]
   created_at?: string
   author?: BackendAuthor
   media?: BackendMedia[]
@@ -92,11 +93,34 @@ export interface UploadedMedia {
 export interface CreatePostInput {
   caption?: string
   location?: string
+  tags?: string[]
   media: Array<{
     media_url: string
     media_type: 'image' | 'video'
     position?: number
   }>
+}
+
+export interface UpdatePostInput {
+  caption?: string
+  location?: string
+  tags?: string[]
+}
+
+interface UpdatePostResponse {
+  post?: BackendPost
+}
+
+interface DeletePostResponse {
+  deleted?: boolean
+  postId?: number | string
+  cleanupStatus?: 'queued' | 'queue_failed'
+}
+
+export interface DeletePostResult {
+  deleted: boolean
+  postId: string
+  cleanupStatus: 'queued' | 'queue_failed'
 }
 
 function unwrapData<T>(payload: unknown): T {
@@ -237,7 +261,7 @@ export async function fetchPostDetailApi(postId: string): Promise<Post> {
     media: extractPostMedia(detailData),
     thumbnail: thumbnailUrl,
     media_count: normalizedMedia.length,
-    tags: [],
+    tags: Array.isArray(detailData.tags) ? detailData.tags : [],
   })
 }
 
@@ -256,6 +280,33 @@ export async function createPostApi(payload: CreatePostInput): Promise<Post> {
     thumbnail: thumbnailUrl,
     media_count: payload.media.length,
   })
+}
+
+function resolveUpdatedPostPayload(payload: unknown): BackendPost {
+  const data = unwrapData<BackendPost | UpdatePostResponse>(payload)
+  if (data && typeof data === 'object' && 'post' in data) {
+    return (data as UpdatePostResponse).post ?? {}
+  }
+
+  return data as BackendPost
+}
+
+export async function updatePostApi(postId: string, payload: UpdatePostInput): Promise<Post> {
+  const response = await http.patch(`/posts/${postId}`, payload)
+  const updatedPost = resolveUpdatedPostPayload(response.data)
+
+  return normalizePost(updatedPost)
+}
+
+export async function deletePostApi(postId: string): Promise<DeletePostResult> {
+  const response = await http.delete(`/posts/${postId}`)
+  const data = unwrapData<DeletePostResponse>(response.data)
+
+  return {
+    deleted: Boolean(data?.deleted),
+    postId: String(data?.postId ?? postId),
+    cleanupStatus: data?.cleanupStatus === 'queue_failed' ? 'queue_failed' : 'queued',
+  }
 }
 
 export async function likePostApi(postId: string): Promise<{ liked: boolean }> {

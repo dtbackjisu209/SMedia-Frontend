@@ -93,15 +93,6 @@ function label(conv: Conversation): string {
   return other?.name || `Hội thoại #${conv.id}`
 }
 
-function labelLegacy(conv: Conversation): string {
-  if (conv.type === 'group') {
-    return conv.name || `Group chat #${conv.id}`
-  }
-  if (conv.name) return conv.name
-  const other = conv.members.find((m) => Number(m.user_id) !== Number(props.currentUserId))
-  return other?.name || `Chat #${conv.id}`
-}
-
 function initial(conv: Conversation) { return label(conv)?.[0]?.toUpperCase() || '?' }
 
 function fmtTime(date?: string | null): string {

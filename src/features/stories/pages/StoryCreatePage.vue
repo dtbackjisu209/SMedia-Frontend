@@ -148,9 +148,9 @@ const isVideo = computed(() => {
         <div class="form-section">
           <div class="user-info">
             <div class="avatar-container">
-              <img :src="authStore.user?.avatar_url || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'" class="avatar-small" />
+              <img :src="authStore.user?.avatarUrl || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'" class="avatar-small" />
             </div>
-            <span class="username">{{ authStore.user?.username || authStore.user?.userName }}</span>
+            <span class="username">{{ authStore.user?.username }}</span>
           </div>
 
           <div class="input-group">

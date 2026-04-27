@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { storiesApi, type UserStories } from '../api/stories';
 import StoryViewer from './StoryViewer.vue';
@@ -69,8 +68,8 @@ defineExpose({ refresh: fetchStories });
         <div class="avatar-wrapper">
           <div class="avatar-circle">
             <img 
-              v-if="authStore.user?.avatar_url" 
-              :src="authStore.user.avatar_url" 
+              v-if="authStore.user?.avatarUrl" 
+              :src="authStore.user.avatarUrl" 
               class="avatar-img"
             />
             <div v-else class="avatar-placeholder">

@@ -90,7 +90,7 @@ watch(() => props.username, () => {
       <!-- Progress Bars -->
       <div class="progress-bar-container">
         <div 
-          v-for="(story, index) in stories" 
+          v-for="(_, index) in stories" 
           :key="index" 
           class="progress-segment"
         >
