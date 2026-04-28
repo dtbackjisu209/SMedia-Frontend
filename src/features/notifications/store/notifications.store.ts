@@ -98,12 +98,30 @@ export const useNotificationsStore = defineStore('notifications', () => {
             ? '/chat'
             : item.type === 'follow' || item.type === 'follow_request' || item.type === 'follow_accept'
               ? `/users/${item.reference_id}`
+              : item.type === 'like' || item.type === 'comment'
+                ? item.reference_id != null
+                  ? `/posts/${item.reference_id}`
+                  : null
+              : item.type === 'new_post'
+                ? item.reference_id != null
+                  ? `/posts/${item.reference_id}`
+                  : null
+                : item.type === 'new_story'
+                  ? '/'
               : null,
         kindLabel:
           item.type === 'message'
             ? 'Chat'
             : item.type === 'follow' || item.type === 'follow_request' || item.type === 'follow_accept'
               ? 'Profile'
+              : item.type === 'like'
+                ? 'Like'
+                : item.type === 'comment'
+                  ? 'Comment'
+              : item.type === 'new_post'
+                ? 'Post'
+                : item.type === 'new_story'
+                  ? 'Story'
               : 'Activity',
       }
 

@@ -11,14 +11,27 @@ type NotificationApiItem = {
 }
 
 function getNotificationTargetPath(type: string, referenceId?: number | string | null): string | null {
-  if (referenceId == null) return null
-
   if (type === 'message') {
     return '/chat'
   }
 
   if (type === 'follow' || type === 'follow_request' || type === 'follow_accept') {
+    if (referenceId == null) return null
     return `/users/${referenceId}`
+  }
+
+  if (type === 'like' || type === 'comment') {
+    if (referenceId == null) return null
+    return `/posts/${referenceId}`
+  }
+
+  if (type === 'new_post') {
+    if (referenceId == null) return null
+    return `/posts/${referenceId}`
+  }
+
+  if (type === 'new_story') {
+    return '/'
   }
 
   return null
@@ -27,6 +40,10 @@ function getNotificationTargetPath(type: string, referenceId?: number | string |
 function getNotificationKindLabel(type: string): string {
   if (type === 'message') return 'Chat'
   if (type === 'follow' || type === 'follow_request' || type === 'follow_accept') return 'Profile'
+  if (type === 'like') return 'Like'
+  if (type === 'comment') return 'Comment'
+  if (type === 'new_post') return 'Post'
+  if (type === 'new_story') return 'Story'
   return 'Activity'
 }
 
