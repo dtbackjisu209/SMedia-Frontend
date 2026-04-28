@@ -3,15 +3,32 @@ import dayjs from 'dayjs'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePostsStore } from '@/features/posts/store/posts.store'
+import { useAuthStore } from '@/features/auth/store/auth.store'
+import EditPostModal from '@/features/posts/components/EditPostModal.vue'
+import DeletePostConfirmModal from '@/features/posts/components/DeletePostConfirmModal.vue'
+import type { UpdatePostInput } from '@/features/posts/api/posts.api'
 
 const route = useRoute()
 const router = useRouter()
 const postsStore = usePostsStore()
+const authStore = useAuthStore()
 const currentMediaIndex = ref(0)
+const isEditModalOpen = ref(false)
+const isDeleteModalOpen = ref(false)
+const actionMessage = ref('')
 
 const postId = computed(() => String(route.params.postId ?? ''))
 const selectedPost = computed(() => postsStore.selectedPost)
 const currentMedia = computed(() => selectedPost.value?.media[currentMediaIndex.value] ?? null)
+const myUserId = computed(() => Number(authStore.userId ?? 0))
+const isDetailDeleteLoading = computed(() => {
+  if (!selectedPost.value) return false
+  return postsStore.isDeleteLoading(selectedPost.value.id)
+})
+const isOwner = computed(() => {
+  const authorId = Number(selectedPost.value?.author.id ?? 0)
+  return Boolean(myUserId.value && authorId && myUserId.value === authorId)
+})
 const hasPrevious = computed(() => currentMediaIndex.value > 0)
 const hasNext = computed(() => {
   const mediaCount = selectedPost.value?.media.length ?? 0
@@ -20,8 +37,18 @@ const hasNext = computed(() => {
 
 async function loadDetail() {
   if (!postId.value) return
-  await postsStore.fetchPostDetail(postId.value)
+  try {
+    await postsStore.fetchPostDetail(postId.value)
+  } catch {
+    if (postsStore.errorMessage === 'Bai viet khong con ton tai.') {
+      router.push('/')
+    }
+  }
   currentMediaIndex.value = 0
+
+  if (route.query.action === 'edit' && isOwner.value) {
+    isEditModalOpen.value = true
+  }
 }
 
 onMounted(() => {
@@ -45,6 +72,62 @@ function goNextMedia() {
   if (!hasNext.value) return
   currentMediaIndex.value += 1
 }
+
+async function openEditModal() {
+  if (!postId.value || !isOwner.value || postsStore.isUpdating) return
+
+  actionMessage.value = ''
+  try {
+    await postsStore.fetchPostDetail(postId.value)
+    isEditModalOpen.value = true
+  } catch {
+    // Error state is already exposed through the store.
+  }
+}
+
+function openDeleteModal() {
+  if (!isOwner.value) return
+  actionMessage.value = ''
+  isDeleteModalOpen.value = true
+}
+
+async function handleUpdatePost(payload: UpdatePostInput) {
+  if (!postId.value) return
+
+  try {
+    await postsStore.updatePost(postId.value, payload)
+    actionMessage.value = 'Da cap nhat bai viet.'
+    isEditModalOpen.value = false
+    if (route.query.action === 'edit') {
+      router.replace({ path: `/posts/${postId.value}` })
+    }
+  } catch {
+    // Error state is already exposed through the store.
+  }
+}
+
+async function handleDeletePost() {
+  if (!postId.value) return
+
+  try {
+    await postsStore.deletePost(postId.value)
+    isDeleteModalOpen.value = false
+    router.push('/')
+  } catch {
+    // Error state is already exposed through the store.
+  }
+}
+
+async function toggleCurrentPostLike() {
+  const post = postsStore.selectedPost
+  if (!post) return
+
+  try {
+    await postsStore.togglePostLike(post.id, post.isLiked)
+  } catch {
+    // Error state is already exposed through the store.
+  }
+}
 </script>
 
 <template>
@@ -53,12 +136,29 @@ function goNextMedia() {
 
     <p v-if="postsStore.isDetailLoading" class="muted">Loading post detail...</p>
     <p v-else-if="postsStore.errorMessage" class="error">{{ postsStore.errorMessage }}</p>
+    <p v-if="postsStore.likeActionError" class="error">{{ postsStore.likeActionError }}</p>
+    <p v-if="postsStore.updateActionError" class="error">{{ postsStore.updateActionError }}</p>
+    <p v-if="postsStore.deleteActionError" class="error">{{ postsStore.deleteActionError }}</p>
+    <p v-if="actionMessage" class="success">{{ actionMessage }}</p>
 
     <article v-else-if="postsStore.selectedPost" class="card detail-card">
       <header class="head">
         <div>
           <h2 class="section-title">{{ postsStore.selectedPost.author.fullName || postsStore.selectedPost.author.username }}</h2>
           <p class="muted">{{ dayjs(postsStore.selectedPost.createdAt).format('HH:mm DD/MM/YYYY') }}</p>
+        </div>
+        <div v-if="isOwner" class="owner-actions">
+          <button class="button secondary small-btn" type="button" :disabled="postsStore.isUpdating" @click="openEditModal">
+            {{ postsStore.isUpdating ? 'Loading...' : 'Chinh sua' }}
+          </button>
+          <button
+            class="button small-btn danger-btn"
+            type="button"
+            :disabled="postsStore.isDeleteLoading(postsStore.selectedPost.id)"
+            @click="openDeleteModal"
+          >
+            {{ postsStore.isDeleteLoading(postsStore.selectedPost.id) ? 'Dang xoa...' : 'Xoa' }}
+          </button>
         </div>
       </header>
 
@@ -86,11 +186,34 @@ function goNextMedia() {
       </p>
 
       <footer class="stats">
+        <button
+          class="like-btn"
+          type="button"
+          :disabled="postsStore.isLikeLoading(postsStore.selectedPost.id)"
+          @click="toggleCurrentPostLike"
+        >
+          {{ postsStore.isLikeLoading(postsStore.selectedPost.id) ? 'Loading...' : postsStore.selectedPost.isLiked ? 'Unlike' : 'Like' }}
+        </button>
         <span>Likes: {{ postsStore.selectedPost.likeCount }}</span>
         <span>Comments: {{ postsStore.selectedPost.commentCount }}</span>
         <span>Media: {{ postsStore.selectedPost.mediaCount }}</span>
       </footer>
     </article>
+
+    <EditPostModal
+      v-model="isEditModalOpen"
+      :post="postsStore.selectedPost"
+      :is-saving="postsStore.isUpdating"
+      :error-message="postsStore.updateActionError"
+      @submit="handleUpdatePost"
+    />
+
+    <DeletePostConfirmModal
+      v-model="isDeleteModalOpen"
+      :is-deleting="isDetailDeleteLoading"
+      :error-message="postsStore.deleteActionError"
+      @confirm="handleDeletePost"
+    />
   </section>
 </template>
 
@@ -114,6 +237,20 @@ function goNextMedia() {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+}
+
+.owner-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.small-btn {
+  padding: 7px 12px;
+}
+
+.danger-btn {
+  background: #b91c1c;
 }
 
 .caption {
@@ -175,8 +312,28 @@ function goNextMedia() {
   font-size: 13px;
 }
 
+.like-btn {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+
+.like-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
 .error {
   margin: 0;
   color: var(--danger);
+}
+
+.success {
+  margin: 0;
+  color: #166534;
 }
 </style>

@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import { usePostsStore } from '@/features/posts/store/posts.store'
 import { useAuthStore } from '@/features/auth/store/auth.store'
 import { useFollowStore } from '@/features/auth/store/follow.store'
+import DeletePostConfirmModal from '@/features/posts/components/DeletePostConfirmModal.vue'
 import type { Post } from '@/shared/types/social'
 
 const postsStore = usePostsStore()
@@ -13,6 +14,12 @@ const followStore = useFollowStore()
 const router = useRouter()
 const followLoadingUserId = ref<number | null>(null)
 const followError = ref('')
+const deleteTargetPostId = ref<string | null>(null)
+const actionMessage = ref('')
+const isDeleteModalDeleting = computed(() => {
+  if (!deleteTargetPostId.value) return false
+  return postsStore.isDeleteLoading(deleteTargetPostId.value)
+})
 
 const myUserId = computed(() => Number(authStore.userId ?? 0))
 
@@ -33,9 +40,21 @@ function authorId(post: Post): number {
   return Number(post.author.id)
 }
 
+function firstMedia(post: Post): Post['media'][number] | null {
+  if (!Array.isArray(post.media) || post.media.length === 0) return null
+
+  const sorted = [...post.media].sort((a, b) => a.position - b.position)
+  return sorted[0] ?? null
+}
+
 function canFollow(post: Post): boolean {
   const id = authorId(post)
   return Boolean(myUserId.value && id && id !== myUserId.value)
+}
+
+function isOwner(post: Post): boolean {
+  const authorNumericId = authorId(post)
+  return Boolean(myUserId.value && authorNumericId && authorNumericId === myUserId.value)
 }
 
 function followLabel(post: Post): string {
@@ -60,13 +79,54 @@ async function toggleFollow(post: Post): Promise<void> {
     followLoadingUserId.value = null
   }
 }
+
+async function togglePostLike(post: Post): Promise<void> {
+  try {
+    await postsStore.togglePostLike(post.id, post.isLiked)
+  } catch {
+    // Error state is already exposed through the store.
+  }
+}
+
+function openEditPost(post: Post): void {
+  router.push({
+    path: `/posts/${post.id}`,
+    query: { action: 'edit' },
+  })
+}
+
+function openDeleteConfirm(post: Post): void {
+  actionMessage.value = ''
+  deleteTargetPostId.value = post.id
+}
+
+function closeDeleteConfirm(): void {
+  if (deleteTargetPostId.value && postsStore.isDeleteLoading(deleteTargetPostId.value)) return
+  deleteTargetPostId.value = null
+}
+
+async function confirmDeletePost(): Promise<void> {
+  if (!deleteTargetPostId.value) return
+
+  actionMessage.value = ''
+  try {
+    await postsStore.deletePost(deleteTargetPostId.value)
+    actionMessage.value = 'Da xoa bai viet.'
+    deleteTargetPostId.value = null
+  } catch {
+    // Error state is already exposed through the store.
+  }
+}
 </script>
 
 <template>
   <section class="feed-wrap">
     <h3 class="section-title">Latest Posts</h3>
     <p v-if="postsStore.errorMessage" class="error">{{ postsStore.errorMessage }}</p>
+    <p v-if="postsStore.likeActionError" class="error">{{ postsStore.likeActionError }}</p>
+    <p v-if="postsStore.deleteActionError" class="error">{{ postsStore.deleteActionError }}</p>
     <p v-if="followError" class="error">{{ followError }}</p>
+    <p v-if="actionMessage" class="success">{{ actionMessage }}</p>
     <p v-if="postsStore.isLoading" class="muted">Loading posts...</p>
     <p v-else-if="postsStore.posts.length === 0" class="empty muted">
       Your feed is empty. Be the first one to publish a post.
@@ -91,23 +151,74 @@ async function toggleFollow(post: Post): Promise<void> {
             >
               {{ followLoadingUserId === authorId(post) ? 'Loading...' : followLabel(post) }}
             </button>
+            <template v-if="isOwner(post)">
+              <button class="action" type="button" @click.stop="openEditPost(post)">Edit</button>
+              <button
+                class="action action--danger"
+                type="button"
+                :disabled="postsStore.isDeleteLoading(post.id)"
+                @click.stop="openDeleteConfirm(post)"
+              >
+                {{ postsStore.isDeleteLoading(post.id) ? 'Deleting...' : 'Delete' }}
+              </button>
+            </template>
             <button class="more" type="button" @click.stop>...</button>
           </div>
         </header>
 
-        <img v-if="post.thumbnail" :src="post.thumbnail" class="media" alt="Post thumbnail" loading="lazy" />
+        <template v-if="firstMedia(post)">
+          <video
+            v-if="firstMedia(post)?.mediaType === 'video'"
+            class="media"
+            :src="firstMedia(post)?.mediaUrl"
+            controls
+            preload="metadata"
+            playsinline
+            @click.stop
+          ></video>
+          <img
+            v-else
+            :src="firstMedia(post)?.mediaUrl || post.thumbnail"
+            class="media"
+            alt="Post thumbnail"
+            loading="lazy"
+          />
+        </template>
+        <img
+          v-else-if="post.thumbnail"
+          :src="post.thumbnail"
+          class="media"
+          alt="Post thumbnail"
+          loading="lazy"
+        />
         <div v-else class="media media-fallback"></div>
 
         <p v-if="post.caption" class="content">{{ post.caption }}</p>
         <p v-if="post.location" class="muted location">{{ post.location }}</p>
 
         <footer class="actions">
-          <button class="action" type="button" @click.stop>Like {{ post.likeCount }}</button>
+          <button
+            class="action"
+            type="button"
+            :disabled="postsStore.isLikeLoading(post.id)"
+            @click.stop="togglePostLike(post)"
+          >
+            {{ postsStore.isLikeLoading(post.id) ? 'Loading...' : post.isLiked ? 'Unlike' : 'Like' }}
+            {{ post.likeCount }}
+          </button>
           <button class="action" type="button" @click.stop>Comment {{ post.commentCount }}</button>
           <button class="action" type="button" @click.stop>Media {{ post.mediaCount }}</button>
         </footer>
       </li>
     </ul>
+
+    <DeletePostConfirmModal
+      :model-value="Boolean(deleteTargetPostId)"
+      :is-deleting="isDeleteModalDeleting"
+      :error-message="postsStore.deleteActionError"
+      @update:model-value="(visible) => !visible && closeDeleteConfirm()"
+      @confirm="confirmDeletePost"
+    />
   </section>
 </template>
 
@@ -230,6 +341,11 @@ async function toggleFollow(post: Post): Promise<void> {
   font-weight: 600;
 }
 
+.action--danger {
+  border-color: #f3b4b4;
+  color: #991b1b;
+}
+
 .empty {
   border: 1px dashed var(--border);
   border-radius: 12px;
@@ -240,6 +356,11 @@ async function toggleFollow(post: Post): Promise<void> {
 .error {
   margin: 0;
   color: var(--danger);
+}
+
+.success {
+  margin: 0;
+  color: #166534;
 }
 
 @media (max-width: 900px) {

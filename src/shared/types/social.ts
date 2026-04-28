@@ -17,6 +17,7 @@ export interface Post {
     fullName: string
     avatarUrl: string
   }
+  isLiked: boolean
   likeCount: number
   commentCount: number
   tags: string[]

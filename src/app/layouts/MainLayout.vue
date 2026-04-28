@@ -77,9 +77,8 @@ import AppSidebar from '@/shared/components/AppSidebar.vue'
 .suggestion-list {
   margin: 0;
   padding: 0;
-  list-style: none;
   display: grid;
-  gap: 14px;
+  gap: 16px;
 }
 
 .suggestion-item {
@@ -89,54 +88,21 @@ import AppSidebar from '@/shared/components/AppSidebar.vue'
 }
 
 .avatar {
-  width: 38px;
-  height: 38px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: var(--story-ring);
-  position: relative;
-}
-
-.avatar::after {
-  content: '';
-  position: absolute;
-  inset: 2px;
-  border-radius: 50%;
-  background: #fff;
+  background: var(--muted);
 }
 
 .name {
-  margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
+  margin: 0;
 }
 
 .muted {
-  margin: 0;
   font-size: 12px;
-}
-
-@media (max-width: 1150px) {
-  .shell {
-    grid-template-columns: 220px minmax(0, 1fr);
-  }
-
-  .right-rail {
-    display: none;
-  }
-}
-
-@media (max-width: 900px) {
-  .layout-container {
-    padding: 0 12px 90px;
-  }
-
-  .shell {
-    grid-template-columns: 1fr;
-    gap: 14px;
-  }
-
-  .content {
-    max-width: 100%;
-  }
+  color: var(--muted);
+  margin: 0;
 }
 </style>
