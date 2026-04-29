@@ -118,6 +118,11 @@ async function handleChangePassword(payload: ProfilePasswordPayload) {
 async function handleToggleFollow() {
   if (!profile.value || isOwnProfile.value || followLoading.value) return
 
+  const targetId = Number(profile.value.id);
+  if (isNaN(targetId)) {
+    errorMessage.value = 'Invalid profile id.'
+    return
+  }
   followLoading.value = true
   successMessage.value = ''
   errorMessage.value = ''

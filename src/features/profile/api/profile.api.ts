@@ -13,7 +13,7 @@ interface ApiEnvelope<T> {
 }
 
 export async function searchProfileUsers(query: string, limit = 8) {
-  const response = await http.get<ApiEnvelope<ProfileSearchUser[]>>('/profile/search', {
+  const response = await http.get<ApiEnvelope<ProfileSearchUser[]>>('/users/search', {
     params: { q: query, limit },
   })
 

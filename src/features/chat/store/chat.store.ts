@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { io, type Socket } from 'socket.io-client'
 import { chatApi } from '../api/chat.api'
+import { useNotificationsStore } from '@/features/notifications/store/notifications.store'
 
 export interface Message {
   id: string
@@ -39,6 +40,7 @@ export const useChatStore = defineStore('chat', () => {
   const currentUserId    = ref<number>(0)
   const currentUserName  = ref<string>('')
   const onlineUserIds    = ref<Set<number>>(new Set())
+  const notificationsStore = useNotificationsStore()
 
   let socket: Socket | null = null
   let typingTimer: ReturnType<typeof setTimeout> | null = null
@@ -48,6 +50,13 @@ export const useChatStore = defineStore('chat', () => {
   const activeConversation = computed(() =>
     conversations.value.find(c => c.id.toString() === activeId.value) ?? null
   )
+
+  function emitActiveConversation(conversationId: string | null) {
+    if (!socket?.connected) return
+    socket.emit('set_active_conversation', {
+      conversationId: conversationId ?? null,
+    })
+  }
 
   // ── Socket setup ──
   function connect(userId: number, userName: string) {
@@ -61,6 +70,7 @@ export const useChatStore = defineStore('chat', () => {
     socket.on('connect', () => {
       socket!.emit('identify', userId)
       socket!.emit('request_presence_snapshot')
+      emitActiveConversation(activeId.value)
     })
 
     socket.on('new_message', (msg: Message) => {
@@ -115,6 +125,7 @@ export const useChatStore = defineStore('chat', () => {
       clearInterval(presenceTimer)
       presenceTimer = null
     }
+    emitActiveConversation(null)
     socket?.disconnect()
     socket = null
     onlineUserIds.value = new Set()
@@ -147,8 +158,10 @@ export const useChatStore = defineStore('chat', () => {
 
   async function openConversation(conversationId: string) {
     activeId.value   = conversationId
+    emitActiveConversation(conversationId)
     isLoadingMsgs.value = true
     try {
+      await notificationsStore.markConversationMessagesRead(conversationId)
       const data: Message[] = await chatApi.getMessages(conversationId)
       messages.value = data.map((m) => {
         const senderId = String(m.sender_id)
