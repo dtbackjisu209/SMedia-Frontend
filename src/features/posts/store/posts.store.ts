@@ -12,6 +12,7 @@ import {
   updatePostApi,
   type CreatePostInput,
   type UpdatePostInput,
+  type PostDetailResult,
 } from '@/features/posts/api/posts.api'
 import { ROUTE_PATHS } from '@/shared/constants/routes'
 import type { Post } from '@/shared/types/social'
@@ -19,6 +20,7 @@ import type { Post } from '@/shared/types/social'
 export const usePostsStore = defineStore('posts', () => {
   const posts = ref<Post[]>([])
   const selectedPost = ref<Post | null>(null)
+  const selectedPostDetailResult = ref<PostDetailResult | null>(null)
   const isLoading = ref(false)
   const isDetailLoading = ref(false)
   const errorMessage = ref('')
@@ -140,7 +142,9 @@ export const usePostsStore = defineStore('posts', () => {
     errorMessage.value = ''
 
     try {
-      selectedPost.value = await fetchPostDetailApi(postId)
+      const result = await fetchPostDetailApi(postId)
+      selectedPost.value = result.post
+      selectedPostDetailResult.value = result
     } catch (error) {
       errorMessage.value = await resolveActionMessage(error, 'Khong the tai chi tiet bai viet luc nay.')
       throw error
@@ -155,33 +159,30 @@ export const usePostsStore = defineStore('posts', () => {
     likeActionError.value = ''
     setLikeLoading(postId, true)
 
+    // ── Optimistic update: flip UI immediately ────────────────────────────
+    updatePostById(postId, (post) => ({
+      ...post,
+      isLiked: !isCurrentlyLiked,
+      likeCount: isCurrentlyLiked
+        ? Math.max(0, post.likeCount - 1)
+        : post.likeCount + 1,
+    }))
+
     try {
       if (isCurrentlyLiked) {
-        const result = await unlikePostApi(postId)
-
-        updatePostById(postId, (post) => {
-          const nextLikeCount = result.unliked ? Math.max(0, post.likeCount - 1) : post.likeCount
-          return {
-            ...post,
-            isLiked: false,
-            likeCount: nextLikeCount,
-          }
-        })
-
-        return
+        await unlikePostApi(postId)
+      } else {
+        await likePostApi(postId)
       }
-
-      const result = await likePostApi(postId)
-
-      updatePostById(postId, (post) => {
-        const nextLikeCount = result.liked ? post.likeCount + 1 : post.likeCount
-        return {
-          ...post,
-          isLiked: true,
-          likeCount: nextLikeCount,
-        }
-      })
     } catch (error) {
+      // ── Rollback on failure ───────────────────────────────────────────────
+      updatePostById(postId, (post) => ({
+        ...post,
+        isLiked: isCurrentlyLiked,
+        likeCount: isCurrentlyLiked
+          ? post.likeCount + 1
+          : Math.max(0, post.likeCount - 1),
+      }))
       likeActionError.value = error instanceof Error ? error.message : 'Like action failed.'
       throw error
     } finally {
@@ -241,6 +242,7 @@ export const usePostsStore = defineStore('posts', () => {
   return {
     posts,
     selectedPost,
+    selectedPostDetailResult,
     isLoading,
     isDetailLoading,
     errorMessage,
