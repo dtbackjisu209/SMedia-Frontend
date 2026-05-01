@@ -19,6 +19,7 @@
       :is-other-online="isActivePeerOnline"
       :member-action-error="store.memberActionError"
       :message-action-error="store.messageActionError"
+      :replying-to="store.replyingTo"
       @send="store.sendMessage"
       @typing="store.startTyping"
       @new-chat="showNewChat = true"
@@ -27,6 +28,9 @@
       @manage-members="showManageMembers = true"
       @open-settings="showChatSettings = true"
       @delete-message="store.deleteMessage"
+      @reply-message="handleReplyMessage"
+      @react-message="store.toggleMessageReaction"
+      @cancel-reply="store.clearReplyingTo"
     />
 
     <Transition name="modal">
@@ -366,6 +370,11 @@ onUnmounted(() => {
 
 function onSelect(conv: Conversation) {
   store.openConversation(conv.id.toString())
+}
+
+function handleReplyMessage(payload: { messageId: string }) {
+  const message = store.messages.find((item) => item.id === payload.messageId) ?? null
+  store.setReplyingTo(message)
 }
 
 function startPrivateChatWithUser(targetUserId: number) {

@@ -62,7 +62,7 @@
             v-for="msg in messages"
             :key="msg.id"
             class="msg"
-            :class="msg.isOwn ? 'msg--own' : 'msg--other'"
+            :class="[msg.isOwn ? 'msg--own' : 'msg--other', { 'msg--with-reactions': Boolean(msg.reactions?.length) }]"
           >
             <div v-if="!msg.isOwn" class="msg-av">{{ msg.sender_name?.[0]?.toUpperCase() }}</div>
             <div class="msg-body">
@@ -71,8 +71,31 @@
               </span>
               <div class="msg-bubble-wrap">
                 <div class="msg-bubble" :class="{ 'msg-bubble--recalled': msg.is_recalled }">
+                  <div v-if="msg.reply_to" class="msg-reply-preview">
+                    <span class="msg-reply-author">{{ msg.reply_to.sender_name }}</span>
+                    <p class="msg-reply-text">{{ msg.reply_to.content }}</p>
+                  </div>
                   <p class="msg-text" :class="{ 'msg-text--recalled': msg.is_recalled }">{{ msg.content }}</p>
                   <span class="msg-time">{{ fmtTime(msg.created_at) }}</span>
+                </div>
+
+                <div v-if="msg.reactions?.length" class="msg-reactions">
+                  <button
+                    v-for="reaction in msg.reactions"
+                    :key="`${msg.id}-${reaction.emoji}`"
+                    class="msg-reaction-pill"
+                    :class="{ 'msg-reaction-pill--active': reaction.user_ids.includes(String(currentUserId)) }"
+                    type="button"
+                    @click.stop="handleReaction(msg.id, reaction.emoji)"
+                  >
+                    <span>{{ reaction.emoji }}</span>
+                    <span>{{ reaction.count }}</span>
+                  </button>
+                </div>
+
+                <div class="msg-quick-actions">
+                  <button class="msg-quick-btn" type="button" title="Tha tim" @click.stop="handleReaction(msg.id, '❤️')">❤️</button>
+                  <button class="msg-quick-btn" type="button" title="Tra loi" @click.stop="handleReply(msg.id)">↩</button>
                 </div>
 
                 <button
@@ -93,8 +116,12 @@
                 <div
                   v-if="openMenuId === msg.id"
                   class="msg-menu"
-                  :class="{ 'msg-menu--own': msg.isOwn }"
+                  :class="[
+                    { 'msg-menu--own': msg.isOwn },
+                    menuPlacementById[msg.id] === 'below' ? 'msg-menu--below' : 'msg-menu--above',
+                  ]"
                   @click.stop
+                  :ref="(el) => setMenuRef(msg.id, el)"
                 >
                   <div class="msg-menu-time">{{ fmtMenuTime(msg.created_at) }}</div>
                   <button class="msg-menu-item" type="button" @click="handleDelete(msg.id, 'self')">
@@ -120,6 +147,13 @@
       <div class="cw-input-bar">
         <p v-if="memberActionError" class="cw-error">{{ memberActionError }}</p>
         <p v-if="messageActionError" class="cw-error">{{ messageActionError }}</p>
+        <div v-if="replyingTo" class="cw-replying">
+          <div class="cw-replying-copy">
+            <span class="cw-replying-label">Dang tra loi {{ replyingTo.sender_name }}</span>
+            <p class="cw-replying-text">{{ replyingTo.content }}</p>
+          </div>
+          <button class="cw-replying-close" type="button" @click="$emit('cancel-reply')">×</button>
+        </div>
         <textarea
           v-model="draft"
           class="cw-textarea"
@@ -141,7 +175,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
-import type { Conversation, Message } from '../store/chat.store'
+import type { Conversation, Message, MessageReply } from '../store/chat.store'
 
 const props = defineProps<{
   conversation: Conversation | null
@@ -153,6 +187,7 @@ const props = defineProps<{
   isOtherOnline: boolean
   memberActionError?: string
   messageActionError?: string
+  replyingTo?: MessageReply | null
 }>()
 
 const emit = defineEmits<{
@@ -164,11 +199,16 @@ const emit = defineEmits<{
   'manage-members': []
   'open-settings': []
   'delete-message': [payload: { messageId: string; mode: 'self' | 'everyone' }]
+  'reply-message': [payload: { messageId: string }]
+  'react-message': [payload: { messageId: string; emoji: string }]
+  'cancel-reply': []
 }>()
 
 const draft = ref('')
 const msgEl = ref<HTMLElement | null>(null)
 const openMenuId = ref<string | null>(null)
+const menuPlacementById = ref<Record<string, 'above' | 'below'>>({})
+const menuRefs = new Map<string, HTMLElement>()
 
 const convName = computed(() => {
   if (!props.conversation) return ''
@@ -204,16 +244,59 @@ function onTyping() {
 }
 
 function toggleMenu(messageId: string) {
-  openMenuId.value = openMenuId.value === messageId ? null : messageId
+  if (openMenuId.value === messageId) {
+    openMenuId.value = null
+    return
+  }
+
+  openMenuId.value = messageId
+  menuPlacementById.value = {
+    ...menuPlacementById.value,
+    [messageId]: 'above',
+  }
+  nextTick(() => updateMenuPlacement(messageId))
 }
 
 function closeMenu() {
   openMenuId.value = null
 }
 
+function setMenuRef(messageId: string, el: unknown) {
+  if (!(el instanceof HTMLElement)) {
+    menuRefs.delete(messageId)
+    return
+  }
+
+  menuRefs.set(messageId, el)
+}
+
+function updateMenuPlacement(messageId: string) {
+  const menuEl = menuRefs.get(messageId)
+  if (!menuEl) return
+
+  const rect = menuEl.getBoundingClientRect()
+  const estimatedHeight = rect.height || 170
+  const spaceAbove = rect.top
+  const spaceBelow = window.innerHeight - rect.bottom
+
+  menuPlacementById.value = {
+    ...menuPlacementById.value,
+    [messageId]: spaceAbove >= estimatedHeight || spaceAbove > spaceBelow ? 'above' : 'below',
+  }
+}
+
 function handleDelete(messageId: string, mode: 'self' | 'everyone') {
   emit('delete-message', { messageId, mode })
   closeMenu()
+}
+
+function handleReply(messageId: string) {
+  emit('reply-message', { messageId })
+  closeMenu()
+}
+
+function handleReaction(messageId: string, emoji: string) {
+  emit('react-message', { messageId, emoji })
 }
 
 function fmtTime(date?: string): string {
@@ -441,7 +524,7 @@ function fmtMenuTime(date?: string): string {
 .msg-bubble-wrap {
   position: relative;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 8px;
 }
 
@@ -454,6 +537,42 @@ function fmtMenuTime(date?: string): string {
   border-radius: 14px;
   background: #fff;
   border: 1px solid #efefef;
+}
+
+.msg-reply-preview {
+  margin-bottom: 7px;
+  padding: 7px 9px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.msg--own .msg-reply-preview {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.msg-reply-author {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #d65287;
+}
+
+.msg--own .msg-reply-author {
+  color: #fff;
+}
+
+.msg-reply-text {
+  margin: 0;
+  font-size: 0.74rem;
+  color: #667085;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.msg--own .msg-reply-text {
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .msg-bubble--recalled {
@@ -539,6 +658,79 @@ function fmtMenuTime(date?: string): string {
   color: #344054;
 }
 
+.msg-quick-actions {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 10px);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.14s ease, transform 0.14s ease;
+  transform: translateY(-50%);
+  z-index: 4;
+}
+
+.msg--other .msg-quick-actions {
+  right: auto;
+  left: calc(100% + 10px);
+}
+
+.msg:hover .msg-quick-actions,
+.msg:focus-within .msg-quick-actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-50%);
+}
+
+.msg-quick-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: #fff;
+  color: #344054;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+}
+
+.msg-reactions {
+  position: absolute;
+  bottom: -14px;
+  left: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.msg--own .msg-reactions {
+  left: auto;
+  right: 10px;
+}
+
+.msg--with-reactions {
+  margin-bottom: 18px;
+}
+
+.msg-reaction-pill {
+  border: 1px solid #efefef;
+  background: #fff;
+  border-radius: 999px;
+  padding: 3px 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+.msg-reaction-pill--active {
+  border-color: rgba(214, 82, 135, 0.45);
+  background: #fff1f6;
+}
+
 .msg-menu {
   position: absolute;
   bottom: calc(100% + 12px);
@@ -557,6 +749,11 @@ function fmtMenuTime(date?: string): string {
   right: 0;
 }
 
+.msg-menu--below {
+  top: calc(100% + 12px);
+  bottom: auto;
+}
+
 .msg-menu::after {
   content: '';
   position: absolute;
@@ -570,6 +767,13 @@ function fmtMenuTime(date?: string): string {
 .msg-menu--own::after {
   left: auto;
   right: 28px;
+}
+
+.msg-menu--below::after {
+  top: -10px;
+  bottom: auto;
+  border-width: 0 10px 10px 10px;
+  border-color: transparent transparent rgba(41, 41, 41, 0.96) transparent;
 }
 
 .msg-menu-time {
@@ -675,6 +879,47 @@ function fmtMenuTime(date?: string): string {
   margin: 0;
   color: #dc2626;
   font-size: 0.75rem;
+}
+
+.cw-replying {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff4f8;
+  border: 1px solid rgba(214, 82, 135, 0.18);
+}
+
+.cw-replying-copy {
+  min-width: 0;
+}
+
+.cw-replying-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #d65287;
+  margin-bottom: 2px;
+}
+
+.cw-replying-text {
+  margin: 0;
+  font-size: 0.79rem;
+  color: #667085;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cw-replying-close {
+  border: none;
+  background: transparent;
+  color: #8a8fa8;
+  font-size: 1rem;
+  cursor: pointer;
 }
 
 .cw-textarea {

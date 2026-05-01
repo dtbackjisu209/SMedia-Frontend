@@ -4,6 +4,21 @@ import { io, type Socket } from 'socket.io-client'
 import { chatApi } from '../api/chat.api'
 import { useNotificationsStore } from '@/features/notifications/store/notifications.store'
 
+export interface MessageReply {
+  id: string
+  sender_id: string
+  sender_name: string
+  content: string
+  is_recalled: boolean
+  is_unavailable?: boolean
+}
+
+export interface MessageReaction {
+  emoji: string
+  count: number
+  user_ids: string[]
+}
+
 export interface Message {
   id: string
   conversation_id: string
@@ -13,6 +28,8 @@ export interface Message {
   created_at: string
   isOwn?: boolean
   is_recalled?: boolean
+  reply_to?: MessageReply | null
+  reactions?: MessageReaction[]
 }
 
 export interface Member {
@@ -47,6 +64,7 @@ export const useChatStore = defineStore('chat', () => {
   const memberActionError = ref('')
   const messageActionError = ref('')
   const settingsActionError = ref('')
+  const replyingTo = ref<MessageReply | null>(null)
   const notificationsStore = useNotificationsStore()
 
   let socket: Socket | null = null
@@ -56,6 +74,41 @@ export const useChatStore = defineStore('chat', () => {
   const activeConversation = computed(() =>
     conversations.value.find((c) => c.id.toString() === activeId.value) ?? null,
   )
+
+  function normalizeReply(reply?: MessageReply | null): MessageReply | null {
+    if (!reply) return null
+    return {
+      ...reply,
+      id: String(reply.id),
+      sender_id: String(reply.sender_id),
+      is_recalled: Boolean(reply.is_recalled),
+      is_unavailable: Boolean(reply.is_unavailable),
+    }
+  }
+
+  function normalizeReactions(reactions?: MessageReaction[] | null): MessageReaction[] {
+    return (reactions ?? [])
+      .map((reaction) => ({
+        emoji: String(reaction.emoji),
+        count: Number(reaction.count) || 0,
+        user_ids: (reaction.user_ids ?? []).map((id) => String(id)),
+      }))
+      .filter((reaction) => reaction.emoji && reaction.count > 0)
+  }
+
+  function normalizeMessage(message: Message): Message {
+    const senderId = String(message.sender_id)
+    return {
+      ...message,
+      id: String(message.id),
+      sender_id: senderId,
+      conversation_id: String(message.conversation_id),
+      isOwn: senderId === String(currentUserId.value),
+      is_recalled: Boolean(message.is_recalled),
+      reply_to: normalizeReply(message.reply_to),
+      reactions: normalizeReactions(message.reactions),
+    }
+  }
 
   function normalizeMembers(members: Member[]): Member[] {
     return members.map((member) => ({
@@ -85,11 +138,8 @@ export const useChatStore = defineStore('chat', () => {
       emitActiveConversation(activeId.value)
     })
 
-    socket.on('new_message', (msg: Message) => {
-      msg.sender_id = String(msg.sender_id)
-      msg.conversation_id = String(msg.conversation_id)
-      msg.isOwn = msg.sender_id === String(userId)
-      msg.is_recalled = Boolean(msg.is_recalled)
+    socket.on('new_message', (incoming: Message) => {
+      const msg = normalizeMessage(incoming)
       if (msg.conversation_id === activeId.value) {
         messages.value.push(msg)
       }
@@ -132,6 +182,23 @@ export const useChatStore = defineStore('chat', () => {
               is_recalled: Boolean(payload.is_recalled),
             }
           }
+        }
+      },
+    )
+
+    socket.on(
+      'message_reaction_updated',
+      (payload: { messageId: string; conversationId: string; reactions?: MessageReaction[] }) => {
+        const normalizedReactions = normalizeReactions(payload.reactions)
+        if (payload.conversationId === activeId.value) {
+          messages.value = messages.value.map((message) =>
+            message.id === payload.messageId
+              ? {
+                  ...message,
+                  reactions: normalizedReactions,
+                }
+              : message,
+          )
         }
       },
     )
@@ -194,6 +261,7 @@ export const useChatStore = defineStore('chat', () => {
     socket?.disconnect()
     socket = null
     onlineUserIds.value = new Set()
+    replyingTo.value = null
   }
 
   async function fetchConversations() {
@@ -204,12 +272,7 @@ export const useChatStore = defineStore('chat', () => {
         ...c,
         members: normalizeMembers(c.members ?? []),
         lastMessage: c.lastMessage
-          ? {
-              ...c.lastMessage,
-              sender_id: String(c.lastMessage.sender_id),
-              conversation_id: String(c.lastMessage.conversation_id),
-              is_recalled: Boolean((c.lastMessage as { is_recalled?: boolean }).is_recalled),
-            }
+          ? normalizeMessage(c.lastMessage)
           : null,
         unreadCount: 0,
         nickname: (c as { nickname?: string | null }).nickname ?? null,
@@ -271,16 +334,8 @@ export const useChatStore = defineStore('chat', () => {
     try {
       await notificationsStore.markConversationMessagesRead(conversationId)
       const data: Message[] = await chatApi.getMessages(conversationId, currentUserId.value)
-      messages.value = data.map((m) => {
-        const senderId = String(m.sender_id)
-        return {
-          ...m,
-          sender_id: senderId,
-          conversation_id: String(m.conversation_id),
-          isOwn: senderId === String(currentUserId.value),
-          is_recalled: Boolean((m as { is_recalled?: boolean }).is_recalled),
-        }
-      })
+      messages.value = data.map((m) => normalizeMessage(m))
+      replyingTo.value = null
       await refreshActiveConversationMembers()
       const conv = conversations.value.find((c) => c.id.toString() === conversationId)
       if (conv) conv.unreadCount = 0
@@ -345,8 +400,22 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  function deleteMessage(messageId: string, mode: 'self' | 'everyone') {
+  function deleteMessage(
+    input:
+      | { messageId: string; mode: 'self' | 'everyone' }
+      | string,
+    fallbackMode?: 'self' | 'everyone',
+  ) {
     if (!socket?.connected || !currentUserId.value) return
+
+    const messageId = typeof input === 'string' ? input : input.messageId
+    const mode = typeof input === 'string' ? fallbackMode : input.mode
+
+    if (!messageId || !mode) {
+      messageActionError.value = 'Invalid message action payload'
+      return
+    }
+
     messageActionError.value = ''
     socket.emit(
       'delete_message',
@@ -362,7 +431,43 @@ export const useChatStore = defineStore('chat', () => {
         }
 
         if (activeId.value) {
+          fetchConversations()
           openConversation(activeId.value)
+        }
+      },
+    )
+  }
+
+  function setReplyingTo(message: Message | null) {
+    replyingTo.value = message
+      ? {
+          id: String(message.id),
+          sender_id: String(message.sender_id),
+          sender_name: message.sender_name,
+          content: message.content,
+          is_recalled: Boolean(message.is_recalled),
+          is_unavailable: false,
+        }
+      : null
+  }
+
+  function clearReplyingTo() {
+    replyingTo.value = null
+  }
+
+  function toggleMessageReaction(payload: { messageId: string; emoji: string }) {
+    if (!socket?.connected || !currentUserId.value) return
+    messageActionError.value = ''
+    socket.emit(
+      'toggle_message_reaction',
+      {
+        messageId: payload.messageId,
+        userId: String(currentUserId.value),
+        emoji: payload.emoji,
+      },
+      (response: { success: boolean; message?: string }) => {
+        if (!response?.success) {
+          messageActionError.value = response?.message ?? 'Could not update reaction'
         }
       },
     )
@@ -374,7 +479,9 @@ export const useChatStore = defineStore('chat', () => {
       conversationId: activeId.value,
       senderId: currentUserId.value.toString(),
       content,
+      replyToMessageId: replyingTo.value?.id ?? null,
     })
+    replyingTo.value = null
     stopTyping()
   }
 
@@ -402,6 +509,7 @@ export const useChatStore = defineStore('chat', () => {
     isLoadingMsgs,
     isTyping,
     typingText,
+    replyingTo,
     onlineUserIds,
     memberActionError,
     messageActionError,
@@ -416,6 +524,9 @@ export const useChatStore = defineStore('chat', () => {
     inviteMember,
     removeMember,
     deleteMessage,
+    setReplyingTo,
+    clearReplyingTo,
+    toggleMessageReaction,
     updateConversationSettings,
     sendMessage,
     startTyping,
