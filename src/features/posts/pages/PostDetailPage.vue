@@ -3,14 +3,17 @@ import dayjs from 'dayjs'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePostsStore } from '@/features/posts/store/posts.store'
+import { useCommentsStore } from '@/features/posts/store/comments.store'
 import { useAuthStore } from '@/features/auth/store/auth.store'
 import EditPostModal from '@/features/posts/components/EditPostModal.vue'
 import DeletePostConfirmModal from '@/features/posts/components/DeletePostConfirmModal.vue'
+import CommentSection from '@/features/posts/components/CommentSection.vue'
 import type { UpdatePostInput } from '@/features/posts/api/posts.api'
 
 const route = useRoute()
 const router = useRouter()
 const postsStore = usePostsStore()
+const commentsStore = useCommentsStore()
 const authStore = useAuthStore()
 const currentMediaIndex = ref(0)
 const isEditModalOpen = ref(false)
@@ -33,6 +36,14 @@ const hasPrevious = computed(() => currentMediaIndex.value > 0)
 const hasNext = computed(() => {
   const mediaCount = selectedPost.value?.media.length ?? 0
   return currentMediaIndex.value < mediaCount - 1
+})
+
+// Live comment count: prefer loaded store count, else post.commentCount from API
+const postState = computed(() => commentsStore.getState(postId.value))
+const displayCommentCount = computed(() => {
+  const state = postState.value
+  if (!state || !state.initialized) return selectedPost.value?.commentCount ?? 0
+  return state.comments.length
 })
 
 async function loadDetail() {
@@ -96,7 +107,7 @@ async function handleUpdatePost(payload: UpdatePostInput) {
 
   try {
     await postsStore.updatePost(postId.value, payload)
-    actionMessage.value = 'Da cap nhat bai viet.'
+    actionMessage.value = 'Đã cập nhật bài viết.'
     isEditModalOpen.value = false
     if (route.query.action === 'edit') {
       router.replace({ path: `/posts/${postId.value}` })
@@ -132,9 +143,9 @@ async function toggleCurrentPostLike() {
 
 <template>
   <section class="detail-page">
-    <button class="button secondary back-btn" type="button" @click="goBack">Back to feed</button>
+    <button class="button secondary back-btn" type="button" @click="goBack">← Quay lại</button>
 
-    <p v-if="postsStore.isDetailLoading" class="muted">Loading post detail...</p>
+    <p v-if="postsStore.isDetailLoading" class="muted">Đang tải bài viết...</p>
     <p v-else-if="postsStore.errorMessage" class="error">{{ postsStore.errorMessage }}</p>
     <p v-if="postsStore.likeActionError" class="error">{{ postsStore.likeActionError }}</p>
     <p v-if="postsStore.updateActionError" class="error">{{ postsStore.updateActionError }}</p>
@@ -142,14 +153,28 @@ async function toggleCurrentPostLike() {
     <p v-if="actionMessage" class="success">{{ actionMessage }}</p>
 
     <article v-else-if="postsStore.selectedPost" class="card detail-card">
+      <!-- Header -->
       <header class="head">
-        <div>
-          <h2 class="section-title">{{ postsStore.selectedPost.author.fullName || postsStore.selectedPost.author.username }}</h2>
-          <p class="muted">{{ dayjs(postsStore.selectedPost.createdAt).format('HH:mm DD/MM/YYYY') }}</p>
+        <div class="author-info">
+          <div class="avatar">
+            <img
+              v-if="postsStore.selectedPost.author.avatarUrl"
+              :src="postsStore.selectedPost.author.avatarUrl"
+              :alt="postsStore.selectedPost.author.fullName"
+              class="avatar-img"
+            />
+            <span v-else class="avatar-initials">
+              {{ (postsStore.selectedPost.author.fullName || postsStore.selectedPost.author.username || '?')[0].toUpperCase() }}
+            </span>
+          </div>
+          <div>
+            <h2 class="section-title">{{ postsStore.selectedPost.author.fullName || postsStore.selectedPost.author.username }}</h2>
+            <p class="muted time">{{ dayjs(postsStore.selectedPost.createdAt).format('HH:mm · DD/MM/YYYY') }}</p>
+          </div>
         </div>
         <div v-if="isOwner" class="owner-actions">
           <button class="button secondary small-btn" type="button" :disabled="postsStore.isUpdating" @click="openEditModal">
-            {{ postsStore.isUpdating ? 'Loading...' : 'Chinh sua' }}
+            {{ postsStore.isUpdating ? 'Đang lưu...' : 'Chỉnh sửa' }}
           </button>
           <button
             class="button small-btn danger-btn"
@@ -157,18 +182,20 @@ async function toggleCurrentPostLike() {
             :disabled="postsStore.isDeleteLoading(postsStore.selectedPost.id)"
             @click="openDeleteModal"
           >
-            {{ postsStore.isDeleteLoading(postsStore.selectedPost.id) ? 'Dang xoa...' : 'Xoa' }}
+            {{ postsStore.isDeleteLoading(postsStore.selectedPost.id) ? 'Đang xóa...' : 'Xóa' }}
           </button>
         </div>
       </header>
 
+      <!-- Caption & location -->
       <p v-if="postsStore.selectedPost.caption" class="caption">{{ postsStore.selectedPost.caption }}</p>
-      <p v-if="postsStore.selectedPost.location" class="location muted">{{ postsStore.selectedPost.location }}</p>
+      <p v-if="postsStore.selectedPost.location" class="location muted">📍 {{ postsStore.selectedPost.location }}</p>
 
-      <section class="media-viewer" v-if="postsStore.selectedPost.media.length > 0">
-        <button class="arrow" type="button" :disabled="!hasPrevious" @click="goPreviousMedia">&lsaquo;</button>
+      <!-- Media viewer -->
+      <section v-if="postsStore.selectedPost.media.length > 0" class="media-viewer">
+        <button class="arrow" type="button" :disabled="!hasPrevious" @click="goPreviousMedia">&#8249;</button>
 
-        <article class="media-item" v-if="currentMedia">
+        <article v-if="currentMedia" class="media-item">
           <img
             v-if="currentMedia.mediaType === 'image'"
             :src="currentMedia.mediaUrl"
@@ -178,26 +205,42 @@ async function toggleCurrentPostLike() {
           <video v-else :src="currentMedia.mediaUrl" class="media" controls playsinline></video>
         </article>
 
-        <button class="arrow" type="button" :disabled="!hasNext" @click="goNextMedia">&rsaquo;</button>
+        <button class="arrow" type="button" :disabled="!hasNext" @click="goNextMedia">&#8250;</button>
       </section>
 
       <p v-if="selectedPost && selectedPost.media.length > 1" class="muted media-index">
         {{ currentMediaIndex + 1 }} / {{ selectedPost.media.length }}
       </p>
 
+      <!-- Stats & like -->
       <footer class="stats">
         <button
           class="like-btn"
+          :class="{ 'like-btn--liked': postsStore.selectedPost.isLiked }"
           type="button"
+          :aria-label="postsStore.selectedPost.isLiked ? 'Unlike bài viết' : 'Like bài viết'"
           :disabled="postsStore.isLikeLoading(postsStore.selectedPost.id)"
           @click="toggleCurrentPostLike"
         >
-          {{ postsStore.isLikeLoading(postsStore.selectedPost.id) ? 'Loading...' : postsStore.selectedPost.isLiked ? 'Unlike' : 'Like' }}
+          <span class="like-icon">{{ postsStore.selectedPost.isLiked ? '❤️' : '🤍' }}</span>
+          <span>{{ postsStore.selectedPost.likeCount }}</span>
         </button>
-        <span>Likes: {{ postsStore.selectedPost.likeCount }}</span>
-        <span>Comments: {{ postsStore.selectedPost.commentCount }}</span>
-        <span>Media: {{ postsStore.selectedPost.mediaCount }}</span>
+        <span class="stat-badge">💬 {{ displayCommentCount }}</span>
+        <span class="stat-badge">🖼 {{ postsStore.selectedPost.mediaCount }}</span>
       </footer>
+
+      <!-- Tags -->
+      <div v-if="postsStore.selectedPost.tags.length > 0" class="tags">
+        <span v-for="tag in postsStore.selectedPost.tags" :key="tag" class="tag">#{{ tag }}</span>
+      </div>
+
+      <!-- Comment section -->
+      <div class="comment-wrap">
+        <CommentSection
+          :post-id="postId"
+          :comment-count="displayCommentCount"
+        />
+      </div>
     </article>
 
     <EditPostModal
@@ -230,7 +273,8 @@ async function toggleCurrentPostLike() {
 }
 
 .detail-card {
-  padding: 16px;
+  padding: 0;
+  overflow: hidden;
 }
 
 .head {
@@ -238,6 +282,47 @@ async function toggleCurrentPostLike() {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
+  padding: 16px 16px 12px;
+}
+
+.author-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--primary, #6366f1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-initials {
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 15px;
+}
+
+.time {
+  margin: 2px 0 0;
+  font-size: 12px;
 }
 
 .owner-actions {
@@ -254,12 +339,15 @@ async function toggleCurrentPostLike() {
 }
 
 .caption {
-  margin: 8px 0 6px;
+  margin: 0;
+  padding: 0 16px 8px;
   line-height: 1.6;
 }
 
 .location {
-  margin: 0 0 12px;
+  margin: 0 0 8px;
+  padding: 0 16px;
+  font-size: 12px;
 }
 
 .media-viewer {
@@ -267,6 +355,7 @@ async function toggleCurrentPostLike() {
   grid-template-columns: auto 1fr auto;
   gap: 8px;
   align-items: center;
+  padding: 0 8px;
 }
 
 .media-item {
@@ -301,25 +390,47 @@ async function toggleCurrentPostLike() {
 .media-index {
   margin: 8px 0 0;
   text-align: center;
+  font-size: 12px;
 }
 
+/* ── Stats ─────────────────────────────────────────────────────────────── */
 .stats {
-  margin-top: 12px;
+  margin: 12px 0 0;
+  padding: 0 16px 12px;
   display: flex;
-  gap: 12px;
+  gap: 10px;
+  align-items: center;
   flex-wrap: wrap;
-  color: var(--muted);
-  font-size: 13px;
+  border-bottom: 1px solid var(--border, #e5e7eb);
 }
 
 .like-btn {
-  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border, #e5e7eb);
   background: #fff;
   border-radius: 999px;
-  padding: 6px 12px;
+  padding: 6px 14px;
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.like-btn:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.like-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.like-btn--liked {
+  border-color: #fca5a5;
+  background: #fff5f5;
 }
 
 .like-btn:disabled {
@@ -327,6 +438,39 @@ async function toggleCurrentPostLike() {
   opacity: 0.7;
 }
 
+.like-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.stat-badge {
+  font-size: 13px;
+  color: var(--muted, #6b7280);
+}
+
+/* ── Tags ──────────────────────────────────────────────────────────────── */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 16px 4px;
+}
+
+.tag {
+  font-size: 12px;
+  color: var(--primary, #6366f1);
+  background: rgba(99, 102, 241, 0.08);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-weight: 500;
+}
+
+/* ── Comments ──────────────────────────────────────────────────────────── */
+.comment-wrap {
+  padding: 16px;
+}
+
+/* ── Misc ──────────────────────────────────────────────────────────────── */
 .error {
   margin: 0;
   color: var(--danger);
