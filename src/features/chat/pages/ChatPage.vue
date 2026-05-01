@@ -17,12 +17,54 @@
       :typing-text="store.typingText"
       :current-user-id="ME.id"
       :is-other-online="isActivePeerOnline"
+      :member-action-error="store.memberActionError"
+      :message-action-error="store.messageActionError"
       @send="store.sendMessage"
       @typing="store.startTyping"
       @new-chat="showNewChat = true"
       @new-group="showNewGroup = true"
       @show-members="showMembers = true"
+      @manage-members="showManageMembers = true"
+      @open-settings="showChatSettings = true"
+      @delete-message="store.deleteMessage"
     />
+
+    <Transition name="modal">
+      <div v-if="showChatSettings" class="overlay" @click.self="closeChatSettingsModal">
+        <div class="modal card">
+          <div class="modal-hd">
+            <h3 class="modal-title">Chat settings</h3>
+            <button class="x-btn" @click="closeChatSettingsModal">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+          <div class="modal-bd">
+            <label class="field-lbl">Nickname</label>
+            <input v-model="chatNickname" type="text" class="field-inp" placeholder="Set a custom chat name..." />
+            <button class="btn btn--primary settings-btn" type="button" @click="saveNickname">Save nickname</button>
+
+            <label class="field-lbl" style="margin-top:13px">Mute notifications</label>
+            <div class="mute-grid">
+              <button class="btn btn--ghost" type="button" @click="updateMute('1h')">1 hour</button>
+              <button class="btn btn--ghost" type="button" @click="updateMute('8h')">8 hours</button>
+              <button class="btn btn--ghost" type="button" @click="updateMute('24h')">24 hours</button>
+              <button class="btn btn--ghost" type="button" @click="updateMute('forever')">Until turn on</button>
+              <button class="btn btn--primary" type="button" @click="updateMute('unmute')">Turn on again</button>
+            </div>
+
+            <p class="helper-text">
+              {{ muteStatusText }}
+            </p>
+            <p v-if="store.settingsActionError" class="helper-text error-text">{{ store.settingsActionError }}</p>
+          </div>
+          <div class="modal-ft">
+            <button class="btn btn--primary" @click="closeChatSettingsModal">Done</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
 
     <Transition name="modal">
       <div v-if="showNewChat" class="overlay" @click.self="closePrivateChatModal">
@@ -152,6 +194,71 @@
         </div>
       </div>
     </Transition>
+
+    <Transition name="modal">
+      <div v-if="showManageMembers" class="overlay" @click.self="closeManageMembersModal">
+        <div class="modal card">
+          <div class="modal-hd">
+            <h3 class="modal-title">Manage members</h3>
+            <button class="x-btn" @click="closeManageMembersModal">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+          <div class="modal-bd">
+            <label class="field-lbl">Invite users</label>
+            <input v-model="memberQuery" type="text" class="field-inp" placeholder="Search users..." />
+
+            <p v-if="memberLoading" class="helper-text">Loading candidates...</p>
+            <p v-else-if="memberError" class="helper-text error-text">{{ memberError }}</p>
+
+            <div v-if="filteredInviteCandidates.length > 0" class="user-results">
+              <button
+                v-for="u in filteredInviteCandidates"
+                :key="u.id"
+                class="user-result"
+                type="button"
+                @click="handleInviteMember(u.id)"
+              >
+                <span class="user-avatar">{{ u.username?.[0]?.toUpperCase() }}</span>
+                <span class="user-meta">
+                  <strong>@{{ u.username }}</strong>
+                  <small>{{ u.full_name || 'No full name' }}</small>
+                </span>
+                <span class="pick-pill">Invite</span>
+              </button>
+            </div>
+
+            <label class="field-lbl" style="margin-top:13px">Current members</label>
+            <div v-if="store.activeConversation?.members?.length" class="user-results">
+              <div
+                v-for="m in store.activeConversation?.members"
+                :key="m.user_id"
+                class="user-result"
+              >
+                <span class="user-avatar">{{ m.name?.[0]?.toUpperCase() }}</span>
+                <span class="user-meta">
+                  <strong>{{ m.name }}</strong>
+                  <small>ID: {{ m.user_id }}</small>
+                </span>
+                <button
+                  v-if="m.user_id !== ME.id"
+                  class="btn btn--ghost"
+                  type="button"
+                  @click="handleRemoveMember(m.user_id)"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="modal-ft">
+            <button class="btn btn--primary" @click="closeManageMembersModal">Done</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -200,12 +307,19 @@ watch(() => auth.isAuthenticated, (isAuth) => {
 const showNewChat = ref(false)
 const showNewGroup = ref(false)
 const showMembers = ref(false)
+const showManageMembers = ref(false)
+const showChatSettings = ref(false)
 const groupName = ref('')
 const groupCandidates = ref<ChatGroupCandidate[]>([])
 const groupQuery = ref('')
 const selectedGroupMembers = ref<Set<number>>(new Set())
 const groupLoading = ref(false)
 const groupError = ref('')
+const memberCandidates = ref<ChatGroupCandidate[]>([])
+const memberQuery = ref('')
+const memberLoading = ref(false)
+const memberError = ref('')
+const chatNickname = ref('')
 
 function mergeCandidates(base: ChatGroupCandidate[], extra: ChatGroupCandidate[]) {
   const map = new Map<number, ChatGroupCandidate>()
@@ -315,6 +429,37 @@ watch(showNewGroup, async (isOpen) => {
   }
 })
 
+watch(showManageMembers, async (isOpen) => {
+  if (!isOpen) {
+    memberCandidates.value = []
+    memberQuery.value = ''
+    memberError.value = ''
+    memberLoading.value = false
+    return
+  }
+
+  memberLoading.value = true
+  memberError.value = ''
+  try {
+    await store.refreshActiveConversationMembers()
+    memberCandidates.value = await chatApi.getGroupCandidates(ME.value.id)
+  } catch (error) {
+    memberCandidates.value = []
+    memberError.value = error instanceof Error ? error.message : 'Failed to load candidates'
+  } finally {
+    memberLoading.value = false
+  }
+})
+
+watch(showChatSettings, (isOpen) => {
+  if (!isOpen) {
+    chatNickname.value = ''
+    return
+  }
+
+  chatNickname.value = store.activeConversation?.nickname ?? store.activeConversation?.name ?? ''
+})
+
 const filteredGroupCandidates = computed(() => {
   if (!groupQuery.value.trim()) return groupCandidates.value
   const q = groupQuery.value.trim().toLowerCase()
@@ -323,11 +468,72 @@ const filteredGroupCandidates = computed(() => {
   )
 })
 
+const filteredInviteCandidates = computed(() => {
+  const existingIds = new Set((store.activeConversation?.members ?? []).map((m) => Number(m.user_id)))
+  const q = memberQuery.value.trim().toLowerCase()
+
+  return memberCandidates.value.filter((u) => {
+    if (existingIds.has(Number(u.id))) return false
+    if (!q) return true
+    return u.username.toLowerCase().includes(q) || (u.full_name || '').toLowerCase().includes(q)
+  })
+})
+
 function toggleGroupMember(userId: number) {
   const next = new Set(selectedGroupMembers.value)
   if (next.has(userId)) next.delete(userId)
   else next.add(userId)
   selectedGroupMembers.value = next
+}
+
+async function handleInviteMember(userId: number) {
+  try {
+    await store.inviteMember(userId)
+  } catch {
+    // Store exposes the error.
+  }
+}
+
+async function handleRemoveMember(userId: number) {
+  try {
+    await store.removeMember(userId)
+  } catch {
+    // Store exposes the error.
+  }
+}
+
+function closeManageMembersModal() {
+  showManageMembers.value = false
+}
+
+const muteStatusText = computed(() => {
+  const active = store.activeConversation
+  if (!active?.is_muted) return 'Notifications are currently on.'
+  if (active.muted_forever) return 'Notifications are muted until you turn them on again.'
+  if (active.muted_until) return `Notifications are muted until ${new Date(active.muted_until).toLocaleString('vi-VN')}.`
+  return 'Notifications are muted.'
+})
+
+async function saveNickname() {
+  try {
+    await store.updateConversationSettings({
+      nickname: chatNickname.value.trim() || null,
+    })
+  } catch {
+    // Store exposes the error.
+  }
+}
+
+async function updateMute(mode: '1h' | '8h' | '24h' | 'forever' | 'unmute') {
+  try {
+    await store.updateConversationSettings({ muteMode: mode })
+  } catch {
+    // Store exposes the error.
+  }
+}
+
+function closeChatSettingsModal() {
+  showChatSettings.value = false
 }
 </script>
 
@@ -586,6 +792,17 @@ function toggleGroupMember(userId: number) {
 .btn--ghost:hover {
   border-color: #d65287;
   color: #d65287;
+}
+
+.mute-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.settings-btn {
+  margin-top: 10px;
 }
 
 .modal-enter-active,
