@@ -229,11 +229,13 @@ export const useChatStore = defineStore('chat', () => {
       onlineUserIds.value = next
     })
 
-    socket.on('user_typing', (d: { message: string }) => {
+    socket.on('user_typing', (d: { conversationId: string; message: string }) => {
+      if (String(d.conversationId) !== String(activeId.value ?? '')) return
       typingText.value = d.message
       isTyping.value = true
     })
-    socket.on('user_stop_typing', () => {
+    socket.on('user_stop_typing', (d: { conversationId: string }) => {
+      if (String(d.conversationId) !== String(activeId.value ?? '')) return
       isTyping.value = false
       typingText.value = ''
     })
@@ -262,6 +264,8 @@ export const useChatStore = defineStore('chat', () => {
     socket = null
     onlineUserIds.value = new Set()
     replyingTo.value = null
+    isTyping.value = false
+    typingText.value = ''
   }
 
   async function fetchConversations() {
@@ -330,6 +334,8 @@ export const useChatStore = defineStore('chat', () => {
   async function openConversation(conversationId: string) {
     activeId.value = conversationId
     emitActiveConversation(conversationId)
+    isTyping.value = false
+    typingText.value = ''
     isLoadingMsgs.value = true
     try {
       await notificationsStore.markConversationMessagesRead(conversationId)

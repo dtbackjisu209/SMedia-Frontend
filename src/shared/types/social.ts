@@ -41,6 +41,11 @@ export interface NotificationItem {
   kindLabel: string
 }
 
+export interface NotificationToastItem {
+  id: string
+  notification: NotificationItem
+}
+
 export interface ChatMessage {
   id: string
   senderName: string

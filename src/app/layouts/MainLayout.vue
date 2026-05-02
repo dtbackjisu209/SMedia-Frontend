@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import AppHeader from '@/shared/components/AppHeader.vue'
 import AppSidebar from '@/shared/components/AppSidebar.vue'
+import MessageToastStack from '../../features/notifications/components/MessageToastStack.vue'
 </script>
 
 <template>
   <main class="layout-container">
     <AppHeader />
+    <MessageToastStack />
     <section class="shell">
       <AppSidebar />
 

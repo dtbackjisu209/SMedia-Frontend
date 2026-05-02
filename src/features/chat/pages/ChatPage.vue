@@ -268,6 +268,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useChatStore, type Conversation } from '../store/chat.store'
 import ChatThreadList from '../components/ChatThreadList.vue'
 import ChatWindow from '../components/ChatWindow.vue'
@@ -276,6 +277,8 @@ import { chatApi, type ChatSearchUser, type ChatGroupCandidate } from '../api/ch
 
 const auth = useAuthStore()
 const store = useChatStore()
+const route = useRoute()
+const router = useRouter()
 
 const ME = computed(() => ({
   id: Number(auth.userId),
@@ -300,6 +303,15 @@ watch(
     if (!id) return
     store.connect(Number(id), ME.value.name)
     await store.fetchConversations()
+
+    const conversationId =
+      typeof route.query.conversationId === 'string' && route.query.conversationId.trim()
+        ? route.query.conversationId.trim()
+        : null
+
+    if (conversationId && store.activeId !== conversationId) {
+      await store.openConversation(conversationId)
+    }
   },
   { immediate: true },
 )
@@ -369,6 +381,10 @@ onUnmounted(() => {
 })
 
 function onSelect(conv: Conversation) {
+  void router.replace({
+    path: '/chat',
+    query: { conversationId: String(conv.id) },
+  })
   store.openConversation(conv.id.toString())
 }
 
@@ -468,6 +484,27 @@ watch(showChatSettings, (isOpen) => {
 
   chatNickname.value = store.activeConversation?.nickname ?? store.activeConversation?.name ?? ''
 })
+
+watch(
+  () => route.query.conversationId,
+  async (conversationId) => {
+    const normalizedConversationId =
+      typeof conversationId === 'string' && conversationId.trim()
+        ? conversationId.trim()
+        : null
+
+    if (!normalizedConversationId || normalizedConversationId === store.activeId) return
+
+    if (!store.conversations.some((conversation) => String(conversation.id) === normalizedConversationId)) {
+      await store.fetchConversations()
+    }
+
+    if (store.conversations.some((conversation) => String(conversation.id) === normalizedConversationId)) {
+      await store.openConversation(normalizedConversationId)
+    }
+  },
+  { immediate: true },
+)
 
 const filteredGroupCandidates = computed(() => {
   if (!groupQuery.value.trim()) return groupCandidates.value

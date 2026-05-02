@@ -10,13 +10,73 @@ import {
   markConversationMessageNotificationsReadApi,
   markNotificationReadApi,
 } from '@/features/notifications/api/notifications.api'
-import type { NotificationItem } from '@/shared/types/social'
+import type { NotificationItem, NotificationToastItem } from '@/shared/types/social'
 
 export const useNotificationsStore = defineStore('notifications', () => {
   const notifications = ref<NotificationItem[]>([])
+  const toasts = ref<NotificationToastItem[]>([])
   const isLoading = ref(false)
   const unreadCount = ref(0)
+  const toastTimers = new Map<string, ReturnType<typeof setTimeout>>()
   let socket: Socket | null = null
+
+  function getTargetPath(type: string, referenceId?: number | string | null): string | null {
+    if (type === 'message') {
+      if (referenceId == null) return '/chat'
+      return `/chat?conversationId=${referenceId}`
+    }
+
+    if (type === 'follow' || type === 'follow_request' || type === 'follow_accept') {
+      if (referenceId == null) return null
+      return `/users/${referenceId}`
+    }
+
+    if (type === 'like' || type === 'comment' || type === 'new_post') {
+      if (referenceId == null) return null
+      return `/posts/${referenceId}`
+    }
+
+    if (type === 'new_story') {
+      return '/'
+    }
+
+    return null
+  }
+
+  function getKindLabel(type: string): string {
+    if (type === 'message') return 'Chat'
+    if (type === 'follow' || type === 'follow_request' || type === 'follow_accept') return 'Profile'
+    if (type === 'like') return 'Like'
+    if (type === 'comment') return 'Comment'
+    if (type === 'new_post') return 'Post'
+    if (type === 'new_story') return 'Story'
+    return 'Activity'
+  }
+
+  function dismissToast(toastId: string) {
+    const timer = toastTimers.get(toastId)
+    if (timer) {
+      clearTimeout(timer)
+      toastTimers.delete(toastId)
+    }
+
+    toasts.value = toasts.value.filter((toast) => toast.id !== toastId)
+  }
+
+  function pushToast(notification: NotificationItem) {
+    const toastId = `${notification.id}-${Date.now()}`
+
+    const nextToasts = [{ id: toastId, notification }, ...toasts.value]
+    const droppedToasts = nextToasts.slice(4)
+    droppedToasts.forEach((toast) => dismissToast(toast.id))
+    toasts.value = nextToasts.slice(0, 4)
+
+    const timer = setTimeout(() => {
+      dismissToast(toastId)
+    }, 5000)
+
+    toastTimers.set(toastId, timer)
+  }
 
   async function fetchNotifications() {
     isLoading.value = true
@@ -93,50 +153,30 @@ export const useNotificationsStore = defineStore('notifications', () => {
         referenceId: item.reference_id != null ? String(item.reference_id) : null,
         createdAt: item.created_at,
         read: Boolean(item.is_read),
-        targetPath:
-          item.type === 'message'
-            ? '/chat'
-            : item.type === 'follow' || item.type === 'follow_request' || item.type === 'follow_accept'
-              ? `/users/${item.reference_id}`
-              : item.type === 'like' || item.type === 'comment'
-                ? item.reference_id != null
-                  ? `/posts/${item.reference_id}`
-                  : null
-              : item.type === 'new_post'
-                ? item.reference_id != null
-                  ? `/posts/${item.reference_id}`
-                  : null
-                : item.type === 'new_story'
-                  ? '/'
-              : null,
-        kindLabel:
-          item.type === 'message'
-            ? 'Chat'
-            : item.type === 'follow' || item.type === 'follow_request' || item.type === 'follow_accept'
-              ? 'Profile'
-              : item.type === 'like'
-                ? 'Like'
-                : item.type === 'comment'
-                  ? 'Comment'
-              : item.type === 'new_post'
-                ? 'Post'
-                : item.type === 'new_story'
-                  ? 'Story'
-              : 'Activity',
+        targetPath: getTargetPath(item.type, item.reference_id),
+        kindLabel: getKindLabel(item.type),
       }
 
       notifications.value = [normalized, ...notifications.value.filter((n) => n.id !== normalized.id)]
       unreadCount.value = notifications.value.filter((n) => !n.read).length
+
+      if (normalized.type === 'message') {
+        pushToast(normalized)
+      }
     })
   }
 
   function disconnect() {
     socket?.disconnect()
     socket = null
+    toastTimers.forEach((timer) => clearTimeout(timer))
+    toastTimers.clear()
+    toasts.value = []
   }
 
   return {
     notifications,
+    toasts,
     isLoading,
     unreadCount,
     fetchNotifications,
@@ -149,5 +189,6 @@ export const useNotificationsStore = defineStore('notifications', () => {
     rejectRequest,
     connect,
     disconnect,
+    dismissToast,
   }
 })
