@@ -12,7 +12,8 @@ type NotificationApiItem = {
 
 function getNotificationTargetPath(type: string, referenceId?: number | string | null): string | null {
   if (type === 'message') {
-    return '/chat'
+    if (referenceId == null) return '/chat'
+    return `/chat?conversationId=${referenceId}`
   }
 
   if (type === 'follow' || type === 'follow_request' || type === 'follow_accept') {
