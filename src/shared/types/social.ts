@@ -6,6 +6,18 @@ export interface User {
   avatarUrl?: string
 }
 
+export interface CommentItem {
+  id: number
+  post_id: number
+  user_id: number
+  username: string
+  full_name: string
+  avatar_url: string | null
+  content: string
+  parent_id: number | null
+  created_at: string
+}
+
 export interface Post {
   id: string
   caption: string

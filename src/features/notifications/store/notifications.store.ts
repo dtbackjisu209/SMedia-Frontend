@@ -10,7 +10,7 @@ import {
   markConversationMessageNotificationsReadApi,
   markNotificationReadApi,
 } from '@/features/notifications/api/notifications.api'
-import type { NotificationItem, NotificationToastItem } from '@/shared/types/social'
+import type { CommentItem, NotificationItem, NotificationToastItem } from '@/shared/types/social'
 
 export const useNotificationsStore = defineStore('notifications', () => {
   const notifications = ref<NotificationItem[]>([])
@@ -166,6 +166,25 @@ export const useNotificationsStore = defineStore('notifications', () => {
     })
   }
 
+  // ── Post room helpers (reuse socket hiện có) ──────────────────────────
+
+  // Join room của bài post đang xem → nhận new_comment realtime
+  function joinPost(postId: string) {
+    socket?.emit('join_post', Number(postId))
+  }
+
+  // Leave room khi rời trang
+  function leavePost(postId: string) {
+    socket?.emit('leave_post', Number(postId))
+  }
+
+  // Đăng ký lắng nghe event new_comment, trả về hàm cleanup
+  function onNewComment(callback: (comment: CommentItem) => void): () => void {
+    if (!socket) return () => {}
+    socket.on('new_comment', callback)
+    return () => socket?.off('new_comment', callback)
+  }
+
   function disconnect() {
     socket?.disconnect()
     socket = null
@@ -190,5 +209,9 @@ export const useNotificationsStore = defineStore('notifications', () => {
     connect,
     disconnect,
     dismissToast,
+    joinPost,
+    leavePost,
+    onNewComment,
+
   }
 })

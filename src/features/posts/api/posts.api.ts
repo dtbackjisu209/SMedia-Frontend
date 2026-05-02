@@ -1,6 +1,6 @@
 import { http } from '@/shared/api/http'
 import axios from 'axios'
-import type { Post } from '@/shared/types/social'
+import type { Post, CommentItem } from '@/shared/types/social'
 
 interface BackendAuthor {
   id?: string | number
@@ -70,6 +70,9 @@ interface BackendPostDetail {
   is_liked?: boolean
   isLiked?: boolean
   liked_by_me?: boolean
+  // Embedded comments from ?commentLimit=N
+  comments?: CommentItem[]
+  comments_next_cursor?: number | null
 }
 
 interface PostLikeApiResult {
@@ -247,8 +250,16 @@ export async function fetchPostsApi(): Promise<Post[]> {
   return items.map(normalizePost)
 }
 
-export async function fetchPostDetailApi(postId: string): Promise<Post> {
-  const response = await http.get(`/posts/${postId}`)
+export interface PostDetailResult {
+  post: Post
+  initialComments: CommentItem[]
+  commentsNextCursor: number | null
+}
+
+export async function fetchPostDetailApi(postId: string): Promise<PostDetailResult> {
+  const response = await http.get(`/posts/${postId}`, {
+    params: { commentLimit: 20 },
+  })
   const detailData = unwrapData<BackendPostDetail>(response.data)
 
   // Use first image as thumbnail, not first media
@@ -256,13 +267,19 @@ export async function fetchPostDetailApi(postId: string): Promise<Post> {
   const imageMedia = normalizedMedia.find((m) => m.mediaType === 'image')
   const thumbnailUrl = imageMedia?.mediaUrl ?? ''
 
-  return normalizePost({
+  const post = normalizePost({
     ...detailData,
     media: extractPostMedia(detailData),
     thumbnail: thumbnailUrl,
     media_count: normalizedMedia.length,
     tags: Array.isArray(detailData.tags) ? detailData.tags : [],
   })
+
+  return {
+    post,
+    initialComments: Array.isArray(detailData.comments) ? detailData.comments : [],
+    commentsNextCursor: detailData.comments_next_cursor ?? null,
+  }
 }
 
 export async function createPostApi(payload: CreatePostInput): Promise<Post> {
