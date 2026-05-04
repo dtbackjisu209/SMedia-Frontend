@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
+import { uploadFilesToCloudinary } from '@/features/posts/api/posts.api'
 import type { ProfilePasswordPayload, ProfileUpdatePayload, ProfileView } from '../types/profile'
 
 const props = defineProps<{
@@ -29,6 +30,9 @@ const passwordForm = reactive({
 })
 
 const activeTab = ref<'profile' | 'security'>('profile')
+const isUploadingAvatar = ref(false)
+const avatarUploadError = ref('')
+const avatarFileInput = ref<HTMLInputElement | null>(null)
 
 watch(
   () => props.profile,
@@ -38,6 +42,7 @@ watch(
     profileForm.bio = profile?.bio ?? ''
     profileForm.avatar_url = profile?.avatar_url ?? ''
     profileForm.is_private = profile?.is_private ?? false
+    avatarUploadError.value = ''
   },
   { immediate: true },
 )
@@ -56,6 +61,38 @@ const initials = computed(() => {
   const source = usernamePreview.value || displayNamePreview.value || 'U'
   return source.slice(0, 1).toUpperCase()
 })
+
+function triggerAvatarPicker() {
+  avatarFileInput.value?.click()
+}
+
+async function handleAvatarFileChange(event: Event) {
+  const input = event.target as HTMLInputElement | null
+  const file = input?.files?.[0]
+
+  if (!file) return
+
+  avatarUploadError.value = ''
+
+  if (!file.type.startsWith('image/')) {
+    avatarUploadError.value = 'Please choose an image file for your avatar.'
+    input.value = ''
+    return
+  }
+
+  isUploadingAvatar.value = true
+
+  try {
+    const [uploadedAvatar] = await uploadFilesToCloudinary([file])
+    profileForm.avatar_url = uploadedAvatar?.media_url ?? ''
+  } catch (error) {
+    avatarUploadError.value =
+      error instanceof Error ? error.message : 'Could not upload avatar right now.'
+  } finally {
+    isUploadingAvatar.value = false
+    input.value = ''
+  }
+}
 
 function submitProfile() {
   emit('save-profile', {
@@ -159,8 +196,35 @@ function submitPassword() {
             </label>
 
             <label>
-              <span>Avatar URL</span>
-              <input v-model="profileForm.avatar_url" type="url" placeholder="https://example.com/avatar.jpg" />
+              <span>Avatar</span>
+              <div class="profile-edit-card__avatar-actions">
+                <input
+                  ref="avatarFileInput"
+                  type="file"
+                  accept="image/*"
+                  class="profile-edit-card__file-input"
+                  @change="handleAvatarFileChange"
+                />
+                <button
+                  type="button"
+                  class="profile-edit-dialog__secondary profile-edit-dialog__secondary--compact"
+                  :disabled="isUploadingAvatar"
+                  @click="triggerAvatarPicker"
+                >
+                  {{ isUploadingAvatar ? 'Uploading...' : 'Choose from laptop' }}
+                </button>
+                <input
+                  v-model="profileForm.avatar_url"
+                  type="url"
+                  placeholder="https://example.com/avatar.jpg"
+                />
+              </div>
+              <small class="profile-edit-card__meta">
+                You can upload an image from your device or paste an avatar URL.
+              </small>
+              <small v-if="avatarUploadError" class="profile-edit-card__error">
+                {{ avatarUploadError }}
+              </small>
             </label>
 
             <label class="profile-edit-dialog__switch">
@@ -339,6 +403,22 @@ function submitPassword() {
   font-size: 0.88rem;
 }
 
+.profile-edit-card__error {
+  display: block;
+  margin-top: 0.45rem;
+  color: #b91c1c;
+  font-size: 0.88rem;
+}
+
+.profile-edit-card__avatar-actions {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.profile-edit-card__file-input {
+  display: none;
+}
+
 .profile-edit-card__hint {
   margin-top: 1rem;
   padding: 0.9rem 1rem;
@@ -430,6 +510,11 @@ function submitPassword() {
   border: 1px solid rgba(15, 23, 42, 0.14);
   background: #fff;
   color: #111827;
+}
+
+.profile-edit-dialog__secondary--compact {
+  width: auto;
+  margin-top: 0;
 }
 
 @media (max-width: 820px) {
