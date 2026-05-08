@@ -6,6 +6,10 @@ const props = defineProps<{
   posts: ProfilePost[]
 }>()
 
+const emit = defineEmits<{
+  openPost: [postId: number]
+}>()
+
 const orderedPosts = computed(() =>
   [...props.posts].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
 )
@@ -32,7 +36,16 @@ function formatDate(value: string) {
     </header>
 
     <div v-if="orderedPosts.length" class="profile-posts__grid">
-      <article v-for="post in orderedPosts" :key="post.id" class="profile-post-card">
+      <article
+        v-for="post in orderedPosts"
+        :key="post.id"
+        class="profile-post-card"
+        role="button"
+        tabindex="0"
+        @click="emit('openPost', post.id)"
+        @keydown.enter="emit('openPost', post.id)"
+        @keydown.space.prevent="emit('openPost', post.id)"
+      >
         <div class="profile-post-card__media">
           <img
             v-if="post.thumbnail"
@@ -107,6 +120,15 @@ function formatDate(value: string) {
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 1.1rem;
   background: #fff;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.profile-post-card:hover,
+.profile-post-card:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
+  outline: none;
 }
 
 .profile-post-card__media {

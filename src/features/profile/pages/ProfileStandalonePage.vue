@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
+import { useAuthStore } from '@/features/auth/store/auth.store'
 import { followUser, unfollowUser } from '@/features/auth/api/follow.api'
 import {
   changeMyPassword,
@@ -23,6 +24,8 @@ const props = defineProps<{
 }>()
 
 const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
 
 const loading = ref(false)
 const saving = ref(false)
@@ -80,6 +83,13 @@ async function handleSaveProfile(payload: ProfileUpdatePayload) {
 
   try {
     profile.value = await updateMyProfile(payload)
+    if (isOwnProfile.value && profile.value) {
+      authStore.updateUserProfile({
+        username: profile.value.username,
+        fullName: profile.value.full_name || profile.value.username,
+        avatarUrl: profile.value.avatar_url ?? '',
+      })
+    }
     successMessage.value = 'Profile updated successfully.'
     editOpen.value = false
   } catch (error) {
@@ -176,6 +186,10 @@ async function handleToggleFollow() {
   }
 }
 
+function handleOpenPost(postId: number) {
+  void router.push(`/posts/${postId}`)
+}
+
 watch(resolvedUserId, () => {
   editOpen.value = false
   successMessage.value = ''
@@ -215,7 +229,11 @@ onMounted(() => {
         @toggle-follow="handleToggleFollow"
       />
 
-      <ProfilePostGrid class="profile-standalone__posts" :posts="profile.posts" />
+      <ProfilePostGrid
+        class="profile-standalone__posts"
+        :posts="profile.posts"
+        @open-post="handleOpenPost"
+      />
 
       <ProfileEditDialog
         :open="editOpen && isOwnProfile"
