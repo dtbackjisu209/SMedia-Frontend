@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { storiesApi } from '../api/stories';
 import { useAuthStore } from '@/features/auth/store/auth.store';
+import { resolveAvatar } from '@/shared/constants/avatar';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -148,7 +149,7 @@ const isVideo = computed(() => {
         <div class="form-section">
           <div class="user-info">
             <div class="avatar-container">
-              <img :src="authStore.user?.avatarUrl || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'" class="avatar-small" />
+              <img :src="resolveAvatar(authStore.user?.avatarUrl)" class="avatar-small" />
             </div>
             <span class="username">{{ authStore.user?.username }}</span>
           </div>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ProfileView } from '../types/profile'
+import { resolveAvatar } from '@/shared/constants/avatar'
 
 const props = defineProps<{
   profile: ProfileView
@@ -16,7 +17,6 @@ const emit = defineEmits<{
 const joinedLabel = computed(() => {
   const date = new Date(props.profile.created_at)
   if (Number.isNaN(date.getTime())) return ''
-
   return new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit',
     month: '2-digit',
@@ -25,246 +25,319 @@ const joinedLabel = computed(() => {
 })
 
 const initials = computed(() => {
-  const source = props.profile.username || props.profile.full_name || 'U'
+  const source = props.profile.full_name || props.profile.username || 'U'
   return source.slice(0, 1).toUpperCase()
 })
 
-const visibilityLabel = computed(() => (props.profile.is_private ? 'Private account' : 'Public account'))
 const relationshipLabel = computed(() => {
   if (props.isOwnProfile) return ''
   if (props.profile.is_following) return 'Following'
   if (props.profile.has_pending_request) return 'Requested'
   return 'Follow'
 })
+
+function formatCount(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'K'
+  return String(n)
+}
 </script>
 
 <template>
-  <section class="profile-hero">
-    <div class="profile-hero__avatar-wrap">
-      <img
-        v-if="profile.avatar_url"
-        :src="profile.avatar_url"
-        :alt="profile.username"
-        class="profile-hero__avatar-image"
-      />
-      <div v-else class="profile-hero__avatar-fallback">
-        {{ initials }}
+  <section class="hero">
+    <!-- Left: Avatar -->
+    <div class="hero__avatar-col">
+      <div class="hero__avatar-ring">
+        <img
+          :src="resolveAvatar(profile.avatar_url)"
+          :alt="profile.username"
+          class="hero__avatar-img"
+        />
       </div>
     </div>
 
-    <div class="profile-hero__content">
-      <div class="profile-hero__topline">
-        <div>
-          <h1 class="profile-hero__username">@{{ profile.username }}</h1>
-          <p class="profile-hero__display-name">
-            {{ profile.full_name || profile.username }}
-          </p>
+    <!-- Right: Info -->
+    <div class="hero__info">
+      <!-- Row 1: username + badge + buttons -->
+      <div class="hero__row hero__row--top">
+        <div class="hero__name-wrap">
+          <h1 class="hero__username">{{ profile.username }}</h1>
+          <svg v-if="profile.is_private" class="hero__lock" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
         </div>
 
-        <button
-          v-if="isOwnProfile"
-          type="button"
-          class="profile-hero__action"
-          @click="emit('edit-profile')"
-        >
-          Edit Profile
-        </button>
+        <div class="hero__btns">
+          <!-- Own profile -->
+          <template v-if="isOwnProfile">
+            <button type="button" class="hero__btn hero__btn--secondary" @click="emit('edit-profile')">
+              Edit profile
+            </button>
+            <button type="button" class="hero__btn hero__btn--secondary">
+              View archive
+            </button>
+          </template>
 
-        <button
-          v-else
-          type="button"
-          class="profile-hero__status-pill"
-          :class="{
-            'profile-hero__status-pill--active': profile.is_following || profile.has_pending_request,
-          }"
-          :disabled="followLoading"
-          @click="emit('toggle-follow')"
-        >
-          {{ relationshipLabel }}
-        </button>
-      </div>
-
-      <div class="profile-hero__stats">
-        <div class="profile-hero__stat">
-          <strong>{{ profile.post_count }}</strong>
-          <span>posts</span>
-        </div>
-        <div class="profile-hero__stat">
-          <strong>{{ profile.follower_count }}</strong>
-          <span>followers</span>
-        </div>
-        <div class="profile-hero__stat">
-          <strong>{{ profile.following_count }}</strong>
-          <span>following</span>
+          <!-- Other profile -->
+          <template v-else>
+            <button
+              type="button"
+              class="hero__btn"
+              :class="profile.is_following || profile.has_pending_request ? 'hero__btn--secondary' : 'hero__btn--primary'"
+              :disabled="followLoading"
+              @click="emit('toggle-follow')"
+            >
+              {{ relationshipLabel }}
+            </button>
+            <button type="button" class="hero__btn hero__btn--secondary">
+              Message
+            </button>
+          </template>
         </div>
       </div>
 
-      <p class="profile-hero__bio-name">
-        {{ profile.full_name || profile.username }}
-      </p>
-      <p class="profile-hero__bio">
-        {{ profile.bio || 'No bio yet.' }}
-      </p>
-      <p class="profile-hero__meta">
-        {{ visibilityLabel }}
-        <span v-if="joinedLabel">· Joined {{ joinedLabel }}</span>
-      </p>
+      <!-- Row 2: stats -->
+      <div class="hero__stats">
+        <span class="hero__stat">
+          <strong>{{ formatCount(profile.post_count) }}</strong> posts
+        </span>
+        <span class="hero__stat">
+          <strong>{{ formatCount(profile.follower_count) }}</strong> followers
+        </span>
+        <span class="hero__stat">
+          <strong>{{ formatCount(profile.following_count) }}</strong> following
+        </span>
+      </div>
+
+      <!-- Row 3: full name + bio -->
+      <div class="hero__bio-block">
+        <p class="hero__fullname">{{ profile.full_name || profile.username }}</p>
+        <p v-if="profile.bio" class="hero__bio">{{ profile.bio }}</p>
+        <p v-if="joinedLabel" class="hero__joined">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          Tham gia {{ joinedLabel }}
+        </p>
+      </div>
     </div>
   </section>
 </template>
 
 <style scoped>
-.profile-hero {
+/* ── Layout ─────────────────────────────────────────────────────────────────── */
+.hero {
   display: grid;
-  grid-template-columns: 120px minmax(0, 1fr);
-  gap: 1.5rem;
-  padding: 1.5rem 1.75rem;
+  grid-template-columns: auto 1fr;
+  gap: 0 56px;
+  align-items: start;
+  padding: 32px 24px 28px;
   background: #fff;
-  border: 1px solid rgba(15, 23, 42, 0.12);
   border-radius: 1.25rem;
+  border: 1px solid rgba(226, 232, 240, 0.7);
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
 }
 
-.profile-hero__avatar-wrap {
+/* ── Avatar ─────────────────────────────────────────────────────────────────── */
+.hero__avatar-col {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
 }
 
-.profile-hero__avatar-image,
-.profile-hero__avatar-fallback {
-  width: 112px;
-  height: 112px;
-  border-radius: 999px;
+.hero__avatar-ring {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  padding: 3px;
+  background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
 }
 
-.profile-hero__avatar-image {
+.hero__avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
   object-fit: cover;
-  border: 4px solid rgba(255, 111, 97, 0.18);
+  display: block;
+  border: 3px solid #fff;
 }
 
-.profile-hero__avatar-fallback {
+.hero__avatar-fallback {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 2.9rem;
+  font-size: 3.2rem;
   font-weight: 800;
-  color: #111827;
-  background: linear-gradient(145deg, #ffb267, #ff6b6b);
-  border: 4px solid rgba(255, 111, 97, 0.18);
+  color: #fff;
+  background: linear-gradient(135deg, #1c62d6, #4f9cf9);
+  border: 3px solid #fff;
 }
 
-.profile-hero__content {
+/* ── Info column ────────────────────────────────────────────────────────────── */
+.hero__info {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   min-width: 0;
 }
 
-.profile-hero__topline {
+/* Row 1: username + buttons */
+.hero__row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.profile-hero__username {
-  margin: 0;
-  font-size: clamp(2rem, 3vw, 2.6rem);
-  line-height: 1.05;
-  color: #111827;
-}
-
-.profile-hero__display-name {
-  margin: 0.35rem 0 0;
-  font-size: 1.05rem;
-  color: #1f2937;
-}
-
-.profile-hero__action,
-.profile-hero__status-pill {
-  flex-shrink: 0;
-  padding: 0.7rem 1rem;
-  border-radius: 999px;
-  font-weight: 700;
-  border: 1px solid rgba(15, 23, 42, 0.14);
-}
-
-.profile-hero__action {
-  background: #fff;
-  color: #111827;
-  cursor: pointer;
-}
-
-.profile-hero__status-pill {
-  background: linear-gradient(135deg, #ff8e6e, #ff5d88);
-  color: #fff;
-  cursor: pointer;
-}
-
-.profile-hero__status-pill--active {
-  background: rgba(15, 23, 42, 0.06);
-  color: #475569;
-}
-
-.profile-hero__status-pill:disabled {
-  opacity: 0.7;
-  cursor: wait;
-}
-
-.profile-hero__stats {
-  display: flex;
-  gap: 1.75rem;
-  margin: 1.15rem 0;
+  gap: 20px;
   flex-wrap: wrap;
 }
 
-.profile-hero__stat {
+.hero__name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hero__username {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 400;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.hero__lock {
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+/* Buttons */
+.hero__btns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hero__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: none;
+  white-space: nowrap;
+}
+
+.hero__btn--primary {
+  background: #1c62d6;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(28, 98, 214, 0.3);
+}
+.hero__btn--primary:hover {
+  background: #1755c0;
+  box-shadow: 0 4px 12px rgba(28, 98, 214, 0.4);
+}
+
+.hero__btn--secondary {
+  background: #f1f5f9;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+}
+.hero__btn--secondary:hover {
+  background: #e8eef6;
+  border-color: #cbd5e1;
+}
+
+.hero__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Row 2: stats */
+.hero__stats {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+
+.hero__stat {
+  font-size: 0.95rem;
+  color: #4b5563;
+}
+
+.hero__stat strong {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Row 3: bio block */
+.hero__bio-block {
   display: flex;
   flex-direction: column;
-  gap: 0.18rem;
+  gap: 4px;
 }
 
-.profile-hero__stat strong {
-  font-size: 1.55rem;
-  line-height: 1;
-  color: #111827;
-}
-
-.profile-hero__stat span {
-  font-size: 0.95rem;
-  color: #64748b;
-  text-transform: lowercase;
-}
-
-.profile-hero__bio-name {
+.hero__fullname {
   margin: 0;
-  font-size: 1.02rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  color: #111827;
+  color: #0f172a;
 }
 
-.profile-hero__bio {
-  margin: 0.75rem 0 0;
-  color: #4b5563;
+.hero__bio {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #374151;
   line-height: 1.6;
   white-space: pre-wrap;
 }
 
-.profile-hero__meta {
-  margin: 0.9rem 0 0;
-  font-size: 0.95rem;
-  color: #64748b;
+.hero__joined {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.82rem;
+  color: #94a3b8;
 }
 
-@media (max-width: 900px) {
-  .profile-hero {
+/* ── Responsive ─────────────────────────────────────────────────────────────── */
+@media (max-width: 700px) {
+  .hero {
     grid-template-columns: 1fr;
-    justify-items: center;
+    gap: 20px 0;
     text-align: center;
+    padding: 24px 16px;
   }
 
-  .profile-hero__topline {
-    flex-direction: column;
+  .hero__avatar-col {
+    justify-content: center;
+  }
+
+  .hero__avatar-ring {
+    width: 100px;
+    height: 100px;
+  }
+
+  .hero__row {
+    justify-content: center;
+  }
+
+  .hero__stats {
+    justify-content: center;
+  }
+
+  .hero__bio-block {
     align-items: center;
   }
 
-  .profile-hero__stats {
+  .hero__btns {
     justify-content: center;
   }
 }

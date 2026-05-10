@@ -6,11 +6,11 @@
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
         </svg>
       </div>
-      <p class="cw-empty-title">Chon cuoc tro chuyen</p>
-      <p class="cw-empty-sub">hoac bat dau mot cuoc chat moi</p>
+      <p class="cw-empty-title">Select a conversation</p>
+      <p class="cw-empty-sub">or start a new chat</p>
       <div class="cw-empty-btns">
-        <button class="btn btn--primary" @click="$emit('new-chat')">Chat 1-1</button>
-        <button class="btn btn--ghost" @click="$emit('new-group')">Tao nhom</button>
+        <button class="btn btn--primary" @click="$emit('new-chat')">New chat</button>
+        <button class="btn btn--ghost" @click="$emit('new-group')">New group</button>
       </div>
     </div>
 
@@ -29,20 +29,20 @@
           </div>
         </div>
         <div class="cw-header-actions">
-          <button class="icon-btn" @click="$emit('open-settings')" title="Cai dat chat">
+          <button class="icon-btn" @click="$emit('open-settings')" title="Chat settings">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="3" />
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 .6 1.65 1.65 0 0 0-.33 1V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-.33-1 1.65 1.65 0 0 0-1-.6 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-.6-1 1.65 1.65 0 0 0-1-.33H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1-.33 1.65 1.65 0 0 0 .6-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-.6 1.65 1.65 0 0 0 .33-1V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 .33 1 1.65 1.65 0 0 0 1 .6 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.13.32.2.66.2 1s-.07.68-.2 1a1.65 1.65 0 0 0 .33 1.82" />
             </svg>
           </button>
-          <button v-if="conversation.type === 'group'" class="icon-btn" @click="$emit('show-members')" title="Thanh vien">
+          <button v-if="conversation.type === 'group'" class="icon-btn" @click="$emit('show-members')" title="Members">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
               <circle cx="9" cy="7" r="4"/>
               <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
             </svg>
           </button>
-          <button v-if="conversation.type === 'group'" class="icon-btn" @click="$emit('manage-members')" title="Quan ly thanh vien">
+          <button v-if="conversation.type === 'group'" class="icon-btn" @click="$emit('manage-members')" title="Manage members">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 5v14" />
               <path d="M5 12h14" />
@@ -56,7 +56,7 @@
           <div class="spinner"></div>
         </div>
         <template v-else>
-          <p v-if="messages.length === 0" class="cw-no-msgs">Hay gui tin nhan dau tien!</p>
+          <p v-if="messages.length === 0" class="cw-no-msgs">Send the first message!</p>
 
           <div
             v-for="msg in messages"
@@ -103,7 +103,7 @@
                   class="msg-more-btn"
                   type="button"
                   :aria-expanded="openMenuId === msg.id"
-                  aria-label="Mo thao tac tin nhan"
+                  aria-label="Open message actions"
                   @click.stop="toggleMenu(msg.id)"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -125,11 +125,11 @@
                 >
                   <div class="msg-menu-time">{{ fmtMenuTime(msg.created_at) }}</div>
                   <button class="msg-menu-item" type="button" @click="handleDelete(msg.id, 'self')">
-                    <span>Xoa ben ban</span>
+                    <span>Delete for me</span>
                     <span class="msg-menu-icon">🗑</span>
                   </button>
                   <button class="msg-menu-item msg-menu-item--danger" type="button" @click="handleDelete(msg.id, 'everyone')">
-                    <span>Thu hoi</span>
+                    <span>Recall</span>
                     <span class="msg-menu-icon">↩</span>
                   </button>
                 </div>
@@ -149,7 +149,7 @@
         <p v-if="messageActionError" class="cw-error">{{ messageActionError }}</p>
         <div v-if="replyingTo" class="cw-replying">
           <div class="cw-replying-copy">
-            <span class="cw-replying-label">Dang tra loi {{ replyingTo.sender_name }}</span>
+            <span class="cw-replying-label">Replying to {{ replyingTo.sender_name }}</span>
             <p class="cw-replying-text">{{ replyingTo.content }}</p>
           </div>
           <button class="cw-replying-close" type="button" @click="$emit('cancel-reply')">×</button>
@@ -157,7 +157,7 @@
         <textarea
           v-model="draft"
           class="cw-textarea"
-          placeholder="Nhap tin nhan..."
+          placeholder="Type a message..."
           rows="1"
           @keydown.enter.exact.prevent="send"
           @input="onTyping"
@@ -328,7 +328,7 @@ function fmtMenuTime(date?: string): string {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  background: #fafafa;
+  background: #f8fafc;
 }
 
 .cw-empty {
@@ -338,25 +338,25 @@ function fmtMenuTime(date?: string): string {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  color: #8a8fa8;
+  color: #94a3b8;
 }
 
 .cw-empty-icon {
   width: 68px;
   height: 68px;
   border-radius: 50%;
-  background: rgba(214, 82, 135, 0.1);
+  background: var(--primary-soft);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #d65287;
+  color: var(--primary);
   margin-bottom: 4px;
 }
 
 .cw-empty-title {
   font-size: 1rem;
   font-weight: 700;
-  color: #1a1a2e;
+  color: #0f172a;
   margin: 0;
 }
 
@@ -397,7 +397,7 @@ function fmtMenuTime(date?: string): string {
   height: 36px;
   min-width: 36px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #f7a8c5, #d65287);
+  background: linear-gradient(135deg, #7cc2ff, #1c62d6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -413,13 +413,13 @@ function fmtMenuTime(date?: string): string {
 .cw-name {
   font-size: 0.9rem;
   font-weight: 700;
-  color: #1a1a2e;
+  color: #0f172a;
   margin: 0;
 }
 
 .cw-sub {
   font-size: 0.73rem;
-  color: #8a8fa8;
+  color: #94a3b8;
   margin: 0;
 }
 
@@ -458,7 +458,7 @@ function fmtMenuTime(date?: string): string {
 
 .cw-no-msgs {
   text-align: center;
-  color: #8a8fa8;
+  color: #94a3b8;
   font-size: 0.85rem;
   margin: auto;
 }
@@ -467,7 +467,7 @@ function fmtMenuTime(date?: string): string {
   width: 24px;
   height: 24px;
   border: 2.5px solid #efefef;
-  border-top-color: #d65287;
+  border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 0.65s linear infinite;
 }
@@ -494,7 +494,7 @@ function fmtMenuTime(date?: string): string {
   height: 28px;
   min-width: 28px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #f7a8c5, #d65287);
+  background: linear-gradient(135deg, #7cc2ff, #1c62d6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -515,7 +515,7 @@ function fmtMenuTime(date?: string): string {
 
 .msg-sender {
   font-size: 0.68rem;
-  color: #8a8fa8;
+  color: #94a3b8;
   font-weight: 600;
   margin-bottom: 2px;
   margin-left: 4px;
@@ -555,7 +555,7 @@ function fmtMenuTime(date?: string): string {
   margin-bottom: 2px;
   font-size: 0.68rem;
   font-weight: 700;
-  color: #d65287;
+  color: var(--primary);
 }
 
 .msg--own .msg-reply-author {
@@ -585,7 +585,7 @@ function fmtMenuTime(date?: string): string {
 
 .msg--own .msg-bubble {
   border-bottom-right-radius: 3px;
-  background: linear-gradient(135deg, #d65287, #e8799f);
+  background: linear-gradient(135deg, var(--primary), #2b7cf6);
   border-color: transparent;
 }
 
@@ -599,7 +599,7 @@ function fmtMenuTime(date?: string): string {
   line-height: 1.5;
   word-break: break-word;
   margin: 0;
-  color: #1a1a2e;
+  color: #0f172a;
 }
 
 .msg--own .msg-text {
@@ -613,7 +613,7 @@ function fmtMenuTime(date?: string): string {
 
 .msg-time {
   font-size: 0.62rem;
-  color: #8a8fa8;
+  color: #94a3b8;
   display: block;
   margin-top: 3px;
   text-align: right;
@@ -727,8 +727,8 @@ function fmtMenuTime(date?: string): string {
 }
 
 .msg-reaction-pill--active {
-  border-color: rgba(214, 82, 135, 0.45);
-  background: #fff1f6;
+  border-color: rgba(28, 98, 214, 0.45);
+  background: var(--primary-soft);
 }
 
 .msg-menu {
@@ -833,7 +833,7 @@ function fmtMenuTime(date?: string): string {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: #d65287;
+  background: var(--primary);
   animation: bounce 1.1s infinite;
 }
 
@@ -859,7 +859,7 @@ function fmtMenuTime(date?: string): string {
 
 .typing-label {
   font-size: 0.7rem;
-  color: #8a8fa8;
+  color: #94a3b8;
   font-style: italic;
 }
 
@@ -889,8 +889,8 @@ function fmtMenuTime(date?: string): string {
   gap: 10px;
   padding: 10px 12px;
   border-radius: 12px;
-  background: #fff4f8;
-  border: 1px solid rgba(214, 82, 135, 0.18);
+  background: var(--primary-soft);
+  border: 1px solid rgba(28, 98, 214, 0.18);
 }
 
 .cw-replying-copy {
@@ -901,7 +901,7 @@ function fmtMenuTime(date?: string): string {
   display: block;
   font-size: 0.72rem;
   font-weight: 700;
-  color: #d65287;
+  color: var(--primary);
   margin-bottom: 2px;
 }
 
@@ -939,11 +939,11 @@ function fmtMenuTime(date?: string): string {
 }
 
 .cw-textarea:focus {
-  border-color: #d65287;
+  border-color: var(--primary);
 }
 
 .cw-textarea::placeholder {
-  color: #8a8fa8;
+  color: #94a3b8;
 }
 
 .cw-send {
@@ -952,14 +952,14 @@ function fmtMenuTime(date?: string): string {
   border-radius: 50%;
   border: none;
   flex-shrink: 0;
-  background: linear-gradient(135deg, #d65287, #e8799f);
+  background: linear-gradient(135deg, var(--primary), #2b7cf6);
   color: #fff;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: transform 0.1s, opacity 0.1s;
-  box-shadow: 0 3px 12px rgba(214, 82, 135, 0.32);
+  box-shadow: 0 3px 12px rgba(28, 98, 214, 0.32);
 }
 
 .cw-send:disabled {
@@ -982,7 +982,7 @@ function fmtMenuTime(date?: string): string {
   border-radius: 8px;
   border: none;
   background: transparent;
-  color: #8a8fa8;
+  color: #94a3b8;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -991,8 +991,8 @@ function fmtMenuTime(date?: string): string {
 }
 
 .icon-btn:hover {
-  background: rgba(214, 82, 135, 0.1);
-  color: #d65287;
+  background: var(--primary-soft);
+  color: var(--primary);
 }
 
 .btn {
@@ -1016,9 +1016,9 @@ function fmtMenuTime(date?: string): string {
 }
 
 .btn--primary {
-  background: linear-gradient(135deg, #d65287, #e8799f);
+  background: linear-gradient(135deg, var(--primary), #2b7cf6);
   color: #fff;
-  box-shadow: 0 3px 12px rgba(214, 82, 135, 0.25);
+  box-shadow: 0 3px 12px rgba(28, 98, 214, 0.25);
 }
 
 .btn--primary:hover:not(:disabled) {
@@ -1027,12 +1027,12 @@ function fmtMenuTime(date?: string): string {
 
 .btn--ghost {
   background: transparent;
-  color: #8a8fa8;
+  color: #94a3b8;
   border: 1.5px solid #efefef;
 }
 
 .btn--ghost:hover {
-  border-color: #d65287;
-  color: #d65287;
+  border-color: var(--primary);
+  color: var(--primary);
 }
 </style>

@@ -7,6 +7,7 @@ import { useCommentsStore } from '@/features/posts/store/comments.store'
 import { useAuthStore } from '@/features/auth/store/auth.store'
 import { useNotificationsStore } from '@/features/notifications/store/notifications.store'
 import type { CommentItem } from '@/shared/types/social'
+import { resolveAvatar } from '@/shared/constants/avatar'
 
 dayjs.extend(relativeTime)
 dayjs.locale('vi')
@@ -45,6 +46,10 @@ const myUserId = computed(() => Number(authStore.userId ?? 0))
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const charCount = computed(() => newCommentText.value.length)
 const isOverLimit = computed(() => charCount.value > 2000)
+const currentUserAvatar = computed(() => authStore.user?.avatarUrl ?? '')
+const currentUserInitials = computed(() =>
+  getAvatarInitials(authStore.user?.fullName || authStore.user?.username || 'User'),
+)
 
 // Top-level comments (no parent)
 const topLevelComments = computed(() =>
@@ -180,7 +185,7 @@ async function loadMore() {
 <template>
   <section class="comment-section">
     <h3 class="cs-title">
-      Bình luận
+      Comments
       <span v-if="commentCount != null" class="cs-count">{{ commentCount }}</span>
     </h3>
 
@@ -204,12 +209,10 @@ async function loadMore() {
         <article class="cs-item">
           <div class="cs-avatar" :title="comment.full_name">
             <img
-              v-if="comment.avatar_url"
-              :src="comment.avatar_url"
+              :src="resolveAvatar(comment.avatar_url)"
               :alt="comment.full_name"
               class="cs-avatar-img"
             />
-            <span v-else class="cs-avatar-fallback">{{ getAvatarInitials(comment.full_name) }}</span>
           </div>
 
           <div class="cs-body">
@@ -248,12 +251,10 @@ async function loadMore() {
         >
           <div class="cs-avatar" :title="reply.full_name">
             <img
-              v-if="reply.avatar_url"
-              :src="reply.avatar_url"
+              :src="resolveAvatar(reply.avatar_url)"
               :alt="reply.full_name"
               class="cs-avatar-img"
             />
-            <span v-else class="cs-avatar-fallback">{{ getAvatarInitials(reply.full_name) }}</span>
           </div>
 
           <div class="cs-body">
@@ -297,12 +298,15 @@ async function loadMore() {
       </div>
 
       <div class="cs-input-row">
+        <div class="cs-input-avatar">
+          <img :src="resolveAvatar(currentUserAvatar)" alt="Current user" class="cs-avatar-img" />
+        </div>
         <textarea
           ref="inputRef"
           v-model="newCommentText"
           class="cs-textarea"
           :class="{ 'cs-textarea--error': isOverLimit }"
-          placeholder="Viết bình luận…  (Ctrl+Enter để gửi)"
+          placeholder="Write a comment..."
           rows="2"
           :disabled="isSending"
           @keydown="handleKeydown"
@@ -320,9 +324,6 @@ async function loadMore() {
         </button>
       </div>
 
-      <p class="cs-char-counter" :class="{ 'cs-char-counter--over': isOverLimit }">
-        {{ charCount }} / 2000
-      </p>
     </div>
     <p v-else class="cs-login-hint">
       <a href="/login">Đăng nhập</a> để bình luận.
@@ -336,6 +337,8 @@ async function loadMore() {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  height: 100%;
+  flex: 1;
 }
 
 .cs-title {
@@ -345,12 +348,14 @@ async function loadMore() {
   display: flex;
   align-items: center;
   gap: 6px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
 }
 
 .cs-count {
   font-size: 12px;
   font-weight: 500;
-  background: var(--border, #e5e7eb);
+  background: rgba(226, 232, 240, 0.9);
   border-radius: 999px;
   padding: 1px 8px;
   color: var(--muted, #6b7280);
@@ -362,7 +367,7 @@ async function loadMore() {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background: var(--primary, #6366f1);
+  background: var(--primary, #1c62d6);
   color: #fff;
   border: none;
   border-radius: 999px;
@@ -376,7 +381,7 @@ async function loadMore() {
 }
 
 .cs-new-toast:hover {
-  background: #4f46e5;
+  background: var(--primary-dark, #184fb0);
   transform: translateY(-1px);
 }
 
@@ -394,10 +399,11 @@ async function loadMore() {
 .cs-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  max-height: 480px;
+  gap: 12px;
   overflow-y: auto;
   padding-right: 4px;
+  flex: 1;
+  min-height: 0;
 }
 
 .cs-list::-webkit-scrollbar {
@@ -415,28 +421,25 @@ async function loadMore() {
 .cs-item {
   display: flex;
   gap: 10px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  transition: background 0.15s;
-}
-
-.cs-item:hover {
-  background: rgba(0, 0, 0, 0.03);
+  align-items: flex-start;
 }
 
 .cs-item--reply {
-  margin-left: 36px;
-  padding-left: 8px;
+  margin-left: 34px;
+}
+
+.cs-item--reply .cs-body {
+  background: #f4f7ff;
 }
 
 /* ── Avatar ──────────────────────────────────────────────────────────────── */
 .cs-avatar {
   flex-shrink: 0;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   overflow: hidden;
-  background: var(--primary, #6366f1);
+  background: var(--primary, #1c62d6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -459,6 +462,10 @@ async function loadMore() {
 .cs-body {
   flex: 1;
   min-width: 0;
+  background: #eef4ff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.05);
 }
 
 .cs-meta {
@@ -480,7 +487,7 @@ async function loadMore() {
 
 .cs-content {
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
@@ -490,7 +497,7 @@ async function loadMore() {
 .cs-actions {
   display: flex;
   gap: 10px;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .cs-action-btn {
@@ -498,7 +505,7 @@ async function loadMore() {
   background: none;
   padding: 0;
   font: inherit;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--muted, #6b7280);
   cursor: pointer;
@@ -506,7 +513,7 @@ async function loadMore() {
 }
 
 .cs-action-btn:hover {
-  color: var(--primary, #6366f1);
+  color: var(--primary, #1c62d6);
 }
 
 .cs-action-btn--danger:hover {
@@ -550,6 +557,7 @@ async function loadMore() {
   gap: 4px;
   border-top: 1px solid var(--border, #e5e7eb);
   padding-top: 12px;
+  margin-top: auto;
 }
 
 .cs-reply-banner {
@@ -579,34 +587,55 @@ async function loadMore() {
 }
 
 .cs-input-row {
-  display: flex;
-  gap: 8px;
-  align-items: flex-end;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  padding: 6px 8px;
+  background: #fff;
+}
+
+.cs-input-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+}
+
+.cs-input-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .cs-textarea {
   flex: 1;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 12px;
-  padding: 10px 14px;
+  border: none;
+  border-radius: 0;
+  padding: 6px 4px;
   font: inherit;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.5;
   resize: none;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  background: #fafafa;
+  transition: box-shadow 0.2s;
+  background: transparent;
 }
 
 .cs-textarea:focus {
-  border-color: var(--primary, #6366f1);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
-  background: #fff;
+  box-shadow: none;
 }
 
 .cs-textarea--error {
-  border-color: var(--danger, #dc2626);
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
 }
 
 .cs-textarea:disabled {
@@ -615,9 +644,9 @@ async function loadMore() {
 
 .cs-send-btn {
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
   border: none;
   background: var(--primary, #6366f1);
   color: #fff;
@@ -629,7 +658,7 @@ async function loadMore() {
 }
 
 .cs-send-btn:hover:not(:disabled) {
-  background: #4f46e5;
+  background: #295fd1;
 }
 
 .cs-send-btn:active:not(:disabled) {
@@ -657,17 +686,6 @@ async function loadMore() {
 }
 
 /* ── Char counter ────────────────────────────────────────────────────────── */
-.cs-char-counter {
-  font-size: 11px;
-  color: var(--muted, #9ca3af);
-  text-align: right;
-  margin: 0;
-}
-
-.cs-char-counter--over {
-  color: var(--danger, #dc2626);
-  font-weight: 600;
-}
 
 /* ── Empty / error / hint ────────────────────────────────────────────────── */
 .cs-empty {
