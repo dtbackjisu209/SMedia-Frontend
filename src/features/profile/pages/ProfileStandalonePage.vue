@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { useAuthStore } from '@/features/auth/store/auth.store'
@@ -200,6 +200,11 @@ watch(resolvedUserId, () => {
 onMounted(() => {
   viewerId.value = normalizeViewerId(getCurrentViewerId())
   void loadProfile()
+  document.body.classList.add('profile-view')
+})
+
+onUnmounted(() => {
+  document.body.classList.remove('profile-view')
 })
 </script>
 
@@ -229,6 +234,16 @@ onMounted(() => {
         @toggle-follow="handleToggleFollow"
       />
 
+      <div class="profile-tabs">
+        <button class="profile-tab profile-tab--active" type="button">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+          </svg>
+          Posts
+        </button>
+      </div>
+
       <ProfilePostGrid
         class="profile-standalone__posts"
         :posts="profile.posts"
@@ -250,11 +265,53 @@ onMounted(() => {
 
 <style scoped>
 .profile-standalone {
-  width: min(1180px, 100%);
+  width: min(1100px, 100%);
   margin: 0 auto;
-  padding: 0.25rem 0 3rem;
+  padding: 0.5rem 0 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
+/* ── Tabs ────────────────────────────────────────────────────────────────────── */
+.profile-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 20px 0 16px;
+  border-bottom: 2px solid #f1f5f9;
+  padding-bottom: 0;
+}
+
+.profile-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  border-radius: 0;
+  padding: 10px 18px 12px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.15s ease;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+}
+
+.profile-tab:hover {
+  color: #1c62d6;
+}
+
+.profile-tab--active {
+  color: #1c62d6;
+  border-bottom-color: #1c62d6;
+}
+
+/* ── Banners ─────────────────────────────────────────────────────────────────── */
 .profile-standalone__banner {
   margin-bottom: 1rem;
   padding: 1rem 1.1rem;
@@ -281,6 +338,7 @@ onMounted(() => {
 }
 
 .profile-standalone__posts {
-  margin-top: 1rem;
+  /* grid fills naturally */
 }
 </style>
+

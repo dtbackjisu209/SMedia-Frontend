@@ -121,7 +121,7 @@ async function confirmDeletePost(): Promise<void> {
 
 <template>
   <section class="feed-wrap">
-    <h3 class="section-title">Latest Posts</h3>
+    <h3 class="section-title feed-title">Latest Posts</h3>
     <p v-if="postsStore.errorMessage" class="error">{{ postsStore.errorMessage }}</p>
     <p v-if="postsStore.likeActionError" class="error">{{ postsStore.likeActionError }}</p>
     <p v-if="postsStore.deleteActionError" class="error">{{ postsStore.deleteActionError }}</p>
@@ -135,62 +135,37 @@ async function confirmDeletePost(): Promise<void> {
       <li v-for="post in postsStore.posts" :key="post.id" class="card item" @click="openPostDetail(post.id)">
         <header class="item-head">
           <div class="author-wrap">
-            <span class="avatar"></span>
-            <div>
+            <span class="avatar">{{ (post.author.fullName || post.author.username || '?')[0].toUpperCase() }}</span>
+            <div class="author-meta">
               <strong class="author">{{ post.author.fullName || post.author.username }}</strong>
               <p class="time muted">{{ dayjs(post.createdAt).format('HH:mm DD/MM/YYYY') }}</p>
             </div>
           </div>
-          <div class="head-actions">
-            <button
-              v-if="canFollow(post)"
-              class="action action--follow"
-              type="button"
-              :disabled="followLoadingUserId === authorId(post)"
-              @click.stop="toggleFollow(post)"
-            >
-              {{ followLoadingUserId === authorId(post) ? 'Loading...' : followLabel(post) }}
-            </button>
-            <template v-if="isOwner(post)">
-              <button class="action" type="button" @click.stop="openEditPost(post)">Edit</button>
-              <button
-                class="action action--danger"
-                type="button"
-                :disabled="postsStore.isDeleteLoading(post.id)"
-                @click.stop="openDeleteConfirm(post)"
-              >
-                {{ postsStore.isDeleteLoading(post.id) ? 'Deleting...' : 'Delete' }}
-              </button>
-            </template>
-            <button class="more" type="button" @click.stop>...</button>
-          </div>
         </header>
 
         <template v-if="firstMedia(post)">
-          <video
-            v-if="firstMedia(post)?.mediaType === 'video'"
-            class="media"
-            :src="firstMedia(post)?.mediaUrl"
-            controls
-            preload="metadata"
-            playsinline
-            @click.stop
-          ></video>
-          <img
-            v-else
-            :src="firstMedia(post)?.mediaUrl || post.thumbnail"
-            class="media"
-            alt="Post thumbnail"
-            loading="lazy"
-          />
+          <div class="media-box">
+            <video
+              v-if="firstMedia(post)?.mediaType === 'video'"
+              class="media"
+              :src="firstMedia(post)?.mediaUrl"
+              controls
+              preload="metadata"
+              playsinline
+              @click.stop
+            ></video>
+            <img
+              v-else
+              :src="firstMedia(post)?.mediaUrl || post.thumbnail"
+              class="media"
+              alt="Post image"
+              loading="lazy"
+            />
+          </div>
         </template>
-        <img
-          v-else-if="post.thumbnail"
-          :src="post.thumbnail"
-          class="media"
-          alt="Post thumbnail"
-          loading="lazy"
-        />
+        <div v-else-if="post.thumbnail" class="media-box">
+          <img :src="post.thumbnail" class="media" alt="Post thumbnail" loading="lazy" />
+        </div>
         <div v-else class="media media-fallback"></div>
 
         <p v-if="post.caption" class="content">{{ post.caption }}</p>
@@ -198,16 +173,31 @@ async function confirmDeletePost(): Promise<void> {
 
         <footer class="actions">
           <button
-            class="action"
+            class="action action--icon"
             type="button"
+            :aria-label="post.isLiked ? 'Unlike' : 'Like'"
             :disabled="postsStore.isLikeLoading(post.id)"
             @click.stop="togglePostLike(post)"
           >
-            {{ postsStore.isLikeLoading(post.id) ? 'Loading...' : post.isLiked ? 'Unlike' : 'Like' }}
-            {{ post.likeCount }}
+            <svg class="action-icon" :class="{ 'action-icon--active': post.isLiked }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20.8 9.6a5.5 5.5 0 0 0-9-4.2L12 6l.2-.6a5.5 5.5 0 0 0-9 4.2c0 6.4 8.8 10.8 8.8 10.8s8.8-4.4 8.8-10.8z" />
+            </svg>
+            <span class="action-count">{{ post.likeCount }}</span>
           </button>
-          <button class="action" type="button" @click.stop>Comment {{ post.commentCount }}</button>
-          <button class="action" type="button" @click.stop>Media {{ post.mediaCount }}</button>
+          <button class="action action--icon" type="button" aria-label="Comments" @click.stop="openPostDetail(post.id)">
+            <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <span class="action-count">{{ post.commentCount }}</span>
+          </button>
+          <button class="action action--icon" type="button" aria-label="Media" @click.stop>
+            <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="5" width="18" height="14" rx="2" />
+              <circle cx="8.5" cy="10" r="1.5" />
+              <path d="M21 16l-5-5-4 4-3-3-4 4" />
+            </svg>
+            <span class="action-count">{{ post.mediaCount }}</span>
+          </button>
         </footer>
       </li>
     </ul>
@@ -228,30 +218,33 @@ async function confirmDeletePost(): Promise<void> {
   gap: 10px;
 }
 
+.feed-title {
+  width: 100%;
+  margin: 0;
+}
+
 .list {
   margin: 0;
   padding: 0;
   list-style: none;
   display: grid;
-  gap: 12px;
+  gap: 16px;
 }
 
 .item {
-  padding: 0;
+  padding: 14px;
   overflow: hidden;
+  display: grid;
+  gap: 10px;
   cursor: pointer;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-soft);
+  width: 100%;
 }
 
 .item-head {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 12px;
-  gap: 8px;
-}
-
-.head-actions {
-  display: flex;
   align-items: center;
   gap: 8px;
 }
@@ -263,19 +256,20 @@ async function confirmDeletePost(): Promise<void> {
 }
 
 .avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: var(--story-ring);
-  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 14px;
 }
 
-.avatar::after {
-  content: '';
-  position: absolute;
-  inset: 2px;
-  border-radius: 50%;
-  background: #fff;
+.author-meta {
+  display: grid;
+  gap: 2px;
 }
 
 .author {
@@ -284,22 +278,26 @@ async function confirmDeletePost(): Promise<void> {
 
 .time {
   margin: 0;
-  font-size: 11px;
+  font-size: 12px;
 }
 
-.more {
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
+/* ── Media ────────────────────────────────────────────────────────────────── */
+.media-box {
+  width: 100%;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #0a0a0a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-height: 600px;
 }
 
 .media {
   width: 100%;
-  object-fit: cover;
-  height: 340px;
+  max-height: 600px;
+  object-fit: contain;
+  display: block;
 }
 
 .media-fallback {
@@ -310,41 +308,64 @@ async function confirmDeletePost(): Promise<void> {
 
 .content {
   margin: 0;
-  padding: 12px;
+  padding: 0;
   line-height: 1.65;
   white-space: pre-wrap;
 }
 
 .location {
-  margin: -4px 0 10px;
-  padding: 0 12px;
+  margin: 0;
+  padding: 0;
   font-size: 12px;
 }
 
 .actions {
   display: flex;
-  gap: 8px;
-  padding: 0 12px 12px;
+  gap: 14px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(226, 232, 240, 0.8);
 }
 
 .action {
-  border: 1px solid var(--border);
-  background: #fff;
-  border-radius: 999px;
-  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  padding: 6px 4px;
   cursor: pointer;
   font: inherit;
   font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.action--follow {
+.action--icon {
+  min-width: auto;
+  justify-content: center;
+}
+
+.action-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+  transition: color 0.15s ease;
+}
+
+.action:hover .action-icon,
+.action:hover .action-count {
+  color: var(--primary);
+}
+
+.action-icon--active {
+  color: #ef4444;
+}
+
+.action-count {
   font-weight: 600;
+  color: var(--muted);
 }
 
-.action--danger {
-  border-color: #f3b4b4;
-  color: #991b1b;
-}
+
 
 .empty {
   border: 1px dashed var(--border);
@@ -364,8 +385,15 @@ async function confirmDeletePost(): Promise<void> {
 }
 
 @media (max-width: 900px) {
+  .media-box,
   .media {
-    height: 260px;
+    max-height: 420px;
+  }
+}
+
+@media (max-width: 768px) {
+  .item {
+    max-width: 100%;
   }
 }
 </style>

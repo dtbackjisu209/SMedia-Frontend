@@ -251,8 +251,10 @@ async function submitPost() {
 
 <style scoped>
 .wrapper {
-  padding: 14px;
+  padding: 18px;
   margin-bottom: 8px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
 }
 
 .row-head {
@@ -272,17 +274,11 @@ async function submitPost() {
 .avatar {
   width: 40px;
   height: 40px;
-  border-radius: 50%;
-  background: var(--story-ring);
-  position: relative;
-}
-
-.avatar::after {
-  content: '';
-  position: absolute;
-  inset: 2px;
-  border-radius: 50%;
-  background: #fff;
+  border-radius: 12px;
+  background: var(--primary-soft);
+  display: grid;
+  place-items: center;
+  color: var(--primary);
 }
 
 .hint {
@@ -307,7 +303,7 @@ async function submitPost() {
 }
 
 .hashtag-toggle {
-  border: 1px solid var(--border);
+  border: 1px solid rgba(226, 232, 240, 0.9);
   border-radius: 999px;
   padding: 6px 12px;
   font: inherit;
@@ -325,10 +321,10 @@ async function submitPost() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 12px;
   padding: 8px 10px;
-  background: #fafafa;
+  background: #f8fafc;
 }
 
 .hashtag-add-btn,
@@ -350,9 +346,9 @@ async function submitPost() {
 }
 
 .hashtag-added-btn {
-  color: #166534;
-  border-color: #86efac;
-  background: #f0fdf4;
+  color: #0f766e;
+  border-color: #99f6e4;
+  background: #f0fdfa;
 }
 
 .selected-tags {
@@ -362,7 +358,7 @@ async function submitPost() {
 }
 
 .tag-chip {
-  border: 1px solid var(--border);
+  border: 1px solid rgba(226, 232, 240, 0.9);
   border-radius: 999px;
   padding: 4px 10px;
   background: #fff;
@@ -379,7 +375,7 @@ async function submitPost() {
 
 .preview-item {
   position: relative;
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
   border: 1px solid var(--border);
   background: #f7f7f7;

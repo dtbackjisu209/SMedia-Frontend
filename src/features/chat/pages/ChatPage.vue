@@ -586,13 +586,13 @@ function closeChatSettingsModal() {
 <style scoped>
 .chat-page {
   display: grid;
-  grid-template-columns: 285px 1fr;
+  grid-template-columns: 300px 1fr;
   height: calc(100vh - 116px);
   min-height: 460px;
   overflow: hidden;
-  border-radius: 14px;
-  border: 1px solid #efefef;
-  box-shadow: 0 2px 16px rgba(214, 82, 135, 0.07);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: var(--shadow-soft);
   padding: 0 !important;
 }
 
@@ -626,7 +626,7 @@ function closeChatSettingsModal() {
 .modal-title {
   font-size: 0.92rem;
   font-weight: 700;
-  color: #1a1a2e;
+  color: #0f172a;
   margin: 0;
 }
 
@@ -645,8 +645,8 @@ function closeChatSettingsModal() {
 }
 
 .x-btn:hover {
-  background: rgba(214, 82, 135, 0.1);
-  color: #d65287;
+  background: var(--primary-soft);
+  color: var(--primary);
 }
 
 .modal-bd {
@@ -668,7 +668,7 @@ function closeChatSettingsModal() {
 .field-lbl {
   font-size: 0.71rem;
   font-weight: 700;
-  color: #8a8fa8;
+  color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.4px;
   margin-bottom: 6px;
@@ -682,20 +682,20 @@ function closeChatSettingsModal() {
   border-radius: 9px;
   font-family: inherit;
   font-size: 0.865rem;
-  color: #1a1a2e;
+  color: #0f172a;
   outline: none;
   transition: border-color 0.16s;
   width: 100%;
 }
 
 .field-inp:focus {
-  border-color: #d65287;
+  border-color: var(--primary);
 }
 
 .helper-text {
   margin: 10px 2px 0;
   font-size: 12px;
-  color: #8a8fa8;
+  color: var(--muted);
 }
 
 .error-text {
@@ -721,15 +721,15 @@ function closeChatSettingsModal() {
 }
 
 .user-result:hover {
-  border-color: #d65287;
-  background: #fff7fa;
+  border-color: rgba(28, 98, 214, 0.4);
+  background: var(--primary-soft);
 }
 
 .user-avatar {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #f7a8c5, #d65287);
+  background: linear-gradient(135deg, #7cc2ff, #1c62d6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -748,7 +748,7 @@ function closeChatSettingsModal() {
 
 .user-meta small {
   font-size: 12px;
-  color: #8a8fa8;
+  color: var(--muted);
 }
 
 .pick-pill {
@@ -757,14 +757,14 @@ function closeChatSettingsModal() {
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
-  color: #8a8fa8;
+  color: var(--muted);
   border: 1px solid #efefef;
 }
 
 .pick-pill--active {
-  color: #d65287;
-  border-color: rgba(214, 82, 135, 0.4);
-  background: rgba(214, 82, 135, 0.08);
+  color: var(--primary);
+  border-color: rgba(28, 98, 214, 0.4);
+  background: var(--primary-soft);
 }
 
 .member-row {
@@ -784,7 +784,7 @@ function closeChatSettingsModal() {
   height: 32px;
   min-width: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #f7a8c5, #d65287);
+  background: linear-gradient(135deg, #7cc2ff, #1c62d6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -795,7 +795,7 @@ function closeChatSettingsModal() {
 
 .m-name {
   font-size: 0.865rem;
-  color: #1a1a2e;
+  color: #0f172a;
   font-weight: 500;
 }
 
@@ -820,9 +820,9 @@ function closeChatSettingsModal() {
 }
 
 .btn--primary {
-  background: linear-gradient(135deg, #d65287, #e8799f);
+  background: linear-gradient(135deg, var(--primary), #2b7cf6);
   color: #fff;
-  box-shadow: 0 3px 12px rgba(214, 82, 135, 0.25);
+  box-shadow: 0 3px 12px rgba(28, 98, 214, 0.25);
 }
 
 .btn--primary:hover:not(:disabled) {
@@ -831,13 +831,13 @@ function closeChatSettingsModal() {
 
 .btn--ghost {
   background: transparent;
-  color: #8a8fa8;
+  color: var(--muted);
   border: 1.5px solid #efefef;
 }
 
 .btn--ghost:hover {
-  border-color: #d65287;
-  color: #d65287;
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .mute-grid {

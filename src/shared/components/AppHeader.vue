@@ -58,15 +58,21 @@ function openUserProfile(userId: number): void {
 <template>
   <header class="app-header">
     <div class="inner">
-      <h1 class="title">Socialgram</h1>
+      <div class="brand">
+        <h1 class="title">NeuraNet</h1>
+        <p class="subtitle">Stay Connected</p>
+      </div>
 
       <label class="search-box" aria-label="Search">
-        <span class="search-dot"></span>
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="M20 20l-3.5-3.5"></path>
+        </svg>
         <input
           v-model="keyword"
           class="search-input"
           type="text"
-          placeholder="Search username..."
+          placeholder="Search VibeFlow..."
           autocomplete="off"
         />
 
@@ -88,9 +94,12 @@ function openUserProfile(userId: number): void {
       </label>
 
       <div class="right-zone" v-if="isAuthenticated">
-        <span class="user-pill">{{ user?.username || user?.fullName }}</span>
+        <div class="user-chip">
+          <span class="user-avatar">{{ (user?.username || user?.fullName || 'U')[0]?.toUpperCase() }}</span>
+          <span class="user-name">{{ user?.username || user?.fullName }}</span>
+        </div>
         <button class="button secondary logout" type="button" @click="logout">
-          Logout
+          Log out
         </button>
       </div>
     </div>
@@ -102,59 +111,63 @@ function openUserProfile(userId: number): void {
   position: sticky;
   top: 0;
   z-index: 20;
-  border-bottom: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(8px);
-  margin-bottom: 24px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  background: rgba(247, 249, 252, 0.88);
+  backdrop-filter: blur(14px);
+  margin-bottom: 20px;
 }
 
 .inner {
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
   display: grid;
-  grid-template-columns: 220px 1fr auto;
+  grid-template-columns: 220px minmax(0, 1fr) auto;
   gap: 24px;
   align-items: center;
   padding: 14px 24px;
 }
 
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .title {
   margin: 0;
-  font-family: 'Pacifico', cursive;
-  font-size: 30px;
-  font-weight: 400;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .search-box {
-  max-width: 380px;
+  max-width: 440px;
   width: 100%;
   justify-self: center;
   position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: #efefef;
-  border-radius: 8px;
-  padding: 8px 10px;
+  gap: 10px;
+  background: #fff;
+  border-radius: 999px;
+  padding: 10px 14px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: var(--shadow-soft);
 }
 
-.search-dot {
-  width: 12px;
-  height: 12px;
-  border: 2px solid #999;
-  border-radius: 50%;
-  position: relative;
-}
-
-.search-dot::after {
-  content: '';
-  position: absolute;
-  width: 6px;
-  height: 2px;
-  background: #999;
-  transform: rotate(45deg);
-  right: -5px;
-  bottom: -3px;
+.search-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
 }
 
 .search-input {
@@ -162,6 +175,7 @@ function openUserProfile(userId: number): void {
   background: transparent;
   width: 100%;
   font: inherit;
+  color: var(--text);
 }
 
 .search-input:focus {
@@ -175,8 +189,8 @@ function openUserProfile(userId: number): void {
   right: 0;
   background: #fff;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
   max-height: 280px;
   overflow-y: auto;
   z-index: 30;
@@ -208,7 +222,7 @@ function openUserProfile(userId: number): void {
 }
 
 .search-item:hover {
-  background: #f7f7f7;
+  background: #f8fafc;
 }
 
 .search-user-avatar {
@@ -242,12 +256,56 @@ function openUserProfile(userId: number): void {
   gap: 10px;
 }
 
-.user-pill {
-  font-size: 13px;
-  font-weight: 600;
-  background: #f3f3f3;
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: #fff;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.icon-btn:hover {
+  color: var(--primary);
+  border-color: rgba(28, 98, 214, 0.4);
+  transform: translateY(-1px);
+}
+
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
   border-radius: 999px;
-  padding: 8px 10px;
+  background: var(--surface-soft);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.user-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.user-name {
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .logout {
@@ -259,7 +317,7 @@ function openUserProfile(userId: number): void {
   .inner {
     grid-template-columns: 1fr auto;
     gap: 12px;
-    padding: 12px;
+    padding: 12px 0;
   }
 
   .search-box {
@@ -267,10 +325,12 @@ function openUserProfile(userId: number): void {
   }
 
   .title {
-    font-size: 26px;
+    font-size: 22px;
   }
 
-  .user-pill {
+  .subtitle,
+  .user-chip,
+  .logout {
     display: none;
   }
 }
