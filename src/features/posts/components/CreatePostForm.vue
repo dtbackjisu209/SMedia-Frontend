@@ -21,6 +21,45 @@ const selectedMedia = ref<SelectedMedia[]>([])
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const isSubmitting = ref(false)
 const localError = ref('')
+const isHashtagListOpen = ref(false)
+const selectedTags = ref<string[]>([])
+
+const POPULAR_TOPICS = [
+  'travel',
+  'food',
+  'fashion',
+  'fitness',
+  'music',
+  'technology',
+  'education',
+  'photography',
+  'lifestyle',
+  'business',
+] as const
+
+function normalizeTag(tag: string): string {
+  return tag.trim().replace(/^#+/, '').toLowerCase()
+}
+
+function toggleHashtagList() {
+  isHashtagListOpen.value = !isHashtagListOpen.value
+}
+
+function hasSelectedTag(tag: string): boolean {
+  const normalized = normalizeTag(tag)
+  return selectedTags.value.includes(normalized)
+}
+
+function addTag(tag: string) {
+  const normalized = normalizeTag(tag)
+  if (!normalized || hasSelectedTag(normalized)) return
+  selectedTags.value = [...selectedTags.value, normalized]
+}
+
+function removeTag(tag: string) {
+  const normalized = normalizeTag(tag)
+  selectedTags.value = selectedTags.value.filter((item) => item !== normalized)
+}
 
 function onSelectFiles(event: Event) {
   const input = event.target as HTMLInputElement
@@ -94,6 +133,7 @@ async function submitPost() {
     await postsStore.createPost({
       caption: caption.value.trim() || undefined,
       location: location.value.trim() || undefined,
+      tags: selectedTags.value.length > 0 ? [...selectedTags.value] : undefined,
       media: uploadedMedia.map((item, index) => ({
         media_url: item.media_url,
         media_type: item.media_type,
@@ -103,6 +143,8 @@ async function submitPost() {
 
     caption.value = ''
     location.value = ''
+    selectedTags.value = []
+    isHashtagListOpen.value = false
     clearSelectedMedia()
     emit('submitted')
   } catch (error) {
@@ -141,6 +183,46 @@ async function submitPost() {
       <input v-model="location" class="input" type="text" maxlength="255" placeholder="Da Nang, Vietnam" />
     </label>
 
+    <section class="field hashtag-field">
+      <div class="hashtag-head">
+        <span>Hashtags</span>
+        <button class="hashtag-toggle" type="button" @click="toggleHashtagList">
+          {{ isHashtagListOpen ? 'Hide topic list' : 'Choose hashtag topic' }}
+        </button>
+      </div>
+
+      <div v-if="isHashtagListOpen" class="hashtag-topic-list">
+        <article v-for="topic in POPULAR_TOPICS" :key="topic" class="hashtag-topic-item">
+          <span>#{{ topic }}</span>
+          <button
+            v-if="!hasSelectedTag(topic)"
+            class="hashtag-add-btn"
+            type="button"
+            aria-label="Add hashtag"
+            @click="addTag(topic)"
+          >
+            +
+          </button>
+          <button
+            v-else
+            class="hashtag-added-btn"
+            type="button"
+            aria-label="Remove hashtag"
+            @click="removeTag(topic)"
+          >
+            Added
+          </button>
+        </article>
+      </div>
+
+      <div v-if="selectedTags.length > 0" class="selected-tags">
+        <button v-for="tag in selectedTags" :key="tag" type="button" class="tag-chip" @click="removeTag(tag)">
+          #{{ tag }} x
+        </button>
+      </div>
+      <small class="muted">Tap + to add a topic hashtag to this post.</small>
+    </section>
+
     <label class="field">
       <span>Upload media (image/video)</span>
       <input ref="fileInputRef" class="input" type="file" multiple accept="image/*,video/*" @change="onSelectFiles" />
@@ -169,8 +251,10 @@ async function submitPost() {
 
 <style scoped>
 .wrapper {
-  padding: 14px;
+  padding: 18px;
   margin-bottom: 8px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
 }
 
 .row-head {
@@ -190,17 +274,11 @@ async function submitPost() {
 .avatar {
   width: 40px;
   height: 40px;
-  border-radius: 50%;
-  background: var(--story-ring);
-  position: relative;
-}
-
-.avatar::after {
-  content: '';
-  position: absolute;
-  inset: 2px;
-  border-radius: 50%;
-  background: #fff;
+  border-radius: 12px;
+  background: var(--primary-soft);
+  display: grid;
+  place-items: center;
+  color: var(--primary);
 }
 
 .hint {
@@ -213,6 +291,82 @@ async function submitPost() {
   gap: 6px;
 }
 
+.hashtag-field {
+  gap: 10px;
+}
+
+.hashtag-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hashtag-toggle {
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  background: #fff;
+}
+
+.hashtag-topic-list {
+  display: grid;
+  gap: 8px;
+}
+
+.hashtag-topic-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: #f8fafc;
+}
+
+.hashtag-add-btn,
+.hashtag-added-btn {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  min-width: 34px;
+  height: 28px;
+  padding: 0 10px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  background: #fff;
+}
+
+.hashtag-add-btn {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.hashtag-added-btn {
+  color: #0f766e;
+  border-color: #99f6e4;
+  background: #f0fdfa;
+}
+
+.selected-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-chip {
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
 .preview-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
@@ -221,7 +375,7 @@ async function submitPost() {
 
 .preview-item {
   position: relative;
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
   border: 1px solid var(--border);
   background: #f7f7f7;

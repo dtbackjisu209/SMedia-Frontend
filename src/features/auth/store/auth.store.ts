@@ -98,6 +98,17 @@ export const useAuthStore = defineStore('auth', () => {
     await router.push(ROUTE_PATHS.login)
   }
 
+  function updateUserProfile(payload: Partial<User>) {
+    if (!user.value) return
+
+    user.value = {
+      ...user.value,
+      ...payload,
+    }
+
+    localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user.value))
+  }
+
   return {
     user,
     userId,
@@ -107,5 +118,6 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     register,
     logout,
+    updateUserProfile,
   }
 })

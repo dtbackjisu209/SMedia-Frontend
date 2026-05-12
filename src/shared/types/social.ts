@@ -6,6 +6,18 @@ export interface User {
   avatarUrl?: string
 }
 
+export interface CommentItem {
+  id: number
+  post_id: number
+  user_id: number
+  username: string
+  full_name: string
+  avatar_url: string | null
+  content: string
+  parent_id: number | null
+  created_at: string
+}
+
 export interface Post {
   id: string
   caption: string
@@ -17,6 +29,7 @@ export interface Post {
     fullName: string
     avatarUrl: string
   }
+  isLiked: boolean
   likeCount: number
   commentCount: number
   tags: string[]
@@ -31,9 +44,18 @@ export interface Post {
 
 export interface NotificationItem {
   id: string
+  type: string
   content: string
+  referenceId?: string | null
   createdAt: string
   read: boolean
+  targetPath: string | null
+  kindLabel: string
+}
+
+export interface NotificationToastItem {
+  id: string
+  notification: NotificationItem
 }
 
 export interface ChatMessage {

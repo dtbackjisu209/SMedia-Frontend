@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { storiesApi, type UserStories } from '../api/stories';
 import StoryViewer from './StoryViewer.vue';
 import StoryCreatePage from '../pages/StoryCreatePage.vue';
+import { resolveAvatar } from '@/shared/constants/avatar';
 
 const authStore = useAuthStore();
 const userStoriesList = ref<UserStories[]>([]);
@@ -12,7 +12,7 @@ const isLoading = ref(false);
 const selectedUserIndex = ref<number | null>(null);
 const showCreateStory = ref(false);
 
-const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+
 
 const fetchStories = async () => {
   try {
@@ -69,13 +69,9 @@ defineExpose({ refresh: fetchStories });
         <div class="avatar-wrapper">
           <div class="avatar-circle">
             <img 
-              v-if="authStore.user?.avatar_url" 
-              :src="authStore.user.avatar_url" 
+              :src="resolveAvatar(authStore.user?.avatarUrl)" 
               class="avatar-img"
             />
-            <div v-else class="avatar-placeholder">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dbdbdb" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-            </div>
           </div>
           <div class="plus-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -103,7 +99,7 @@ defineExpose({ refresh: fetchStories });
           <div class="avatar-wrapper gradient-ring">
             <div class="avatar-circle inner-white">
               <img 
-                :src="userStories.avatar_url || DEFAULT_AVATAR" 
+                :src="resolveAvatar(userStories.avatar_url)" 
                 class="avatar-img"
               />
             </div>
@@ -143,9 +139,10 @@ defineExpose({ refresh: fetchStories });
 .stories-bar-container {
   padding: 16px;
   background: #fff;
-  border-radius: 8px;
-  border: 1px solid #dbdbdb;
-  margin-bottom: 24px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: var(--shadow-soft);
+  margin-bottom: 18px;
 }
 
 .flex { display: flex; }
@@ -161,7 +158,7 @@ defineExpose({ refresh: fetchStories });
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  width: 66px;
+  width: 68px;
   transition: transform 0.1s ease;
 }
 
@@ -171,8 +168,8 @@ defineExpose({ refresh: fetchStories });
 
 .avatar-wrapper {
   position: relative;
-  width: 66px;
-  height: 66px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
 }
 
@@ -180,8 +177,8 @@ defineExpose({ refresh: fetchStories });
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  border: 1px solid #efefef;
-  padding: 2px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  padding: 3px;
   background: #fff;
   overflow: hidden;
   display: flex;
@@ -211,7 +208,7 @@ defineExpose({ refresh: fetchStories });
   right: 2px;
   width: 20px;
   height: 20px;
-  background: #0095f6;
+  background: var(--primary);
   color: #fff;
   border-radius: 50%;
   border: 2px solid #fff;
@@ -222,16 +219,16 @@ defineExpose({ refresh: fetchStories });
 
 .story-label {
   font-size: 12px;
-  color: #8e8e8e;
+  color: var(--muted);
   text-align: center;
-  max-width: 66px;
+  max-width: 70px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .gradient-ring {
-  background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+  background: var(--story-ring);
   padding: 2px;
 }
 
@@ -241,7 +238,7 @@ defineExpose({ refresh: fetchStories });
 }
 
 .dark-text {
-  color: #262626;
+  color: #1f2937;
   font-weight: 400;
 }
 

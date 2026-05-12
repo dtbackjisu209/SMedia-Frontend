@@ -7,7 +7,7 @@ import FeedPage from '@/features/posts/pages/FeedPage.vue'
 import PostDetailPage from '@/features/posts/pages/PostDetailPage.vue'
 import NotificationPage from '@/features/notifications/pages/NotificationPage.vue'
 import ChatPage from '@/features/chat/pages/ChatPage.vue'
-import UserProfilePage from '@/features/users/pages/UserProfilePage.vue'
+import ProfileStandalonePage from '@/features/profile/pages/ProfileStandalonePage.vue'
 import { ROUTE_PATHS } from '@/shared/constants/routes'
 
 const router = createRouter({
@@ -20,7 +20,8 @@ const router = createRouter({
       children: [
         { path: '', component: FeedPage },
         { path: 'posts/:postId', component: PostDetailPage },
-        { path: 'users/:userId', component: UserProfilePage },
+        { path: 'users/:userId', component: ProfileStandalonePage },
+        { path: 'profile-standalone/:userId?', component: ProfileStandalonePage },
         { path: ROUTE_PATHS.notifications.slice(1), component: NotificationPage },
         { path: ROUTE_PATHS.chat.slice(1), component: ChatPage },
       ],
