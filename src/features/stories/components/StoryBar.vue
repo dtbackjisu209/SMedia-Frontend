@@ -120,9 +120,11 @@ defineExpose({ refresh: fetchStories });
         :stories="userStoriesList[selectedUserIndex].stories"
         :username="userStoriesList[selectedUserIndex].username"
         :avatar_url="userStoriesList[selectedUserIndex].avatar_url"
+        :userId="userStoriesList[selectedUserIndex].userId"
         @close="closeStory"
         @next-user="handleNextUser"
         @prev-user="handlePrevUser"
+        @story-deleted="fetchStories"
       />
     </Teleport>
 

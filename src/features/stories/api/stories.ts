@@ -40,5 +40,9 @@ export const storiesApi = {
         }
       }
     })
+  },
+
+  deleteStory: async (id: string): Promise<void> => {
+    await http.delete(`/stories/${id}`)
   }
 }
