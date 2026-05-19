@@ -11,8 +11,13 @@ import {
 } from '../api/profile.api'
 import ProfileEditDialog from '../components/ProfileEditDialog.vue'
 import ProfileHeroCard from '../components/ProfileHeroCard.vue'
+import ProfileHighlightStrip from '../components/ProfileHighlightStrip.vue'
 import ProfilePostGrid from '../components/ProfilePostGrid.vue'
+import StoryViewer from '@/features/stories/components/StoryViewer.vue'
+import StoryHighlightSheet from '@/features/stories/components/StoryHighlightSheet.vue'
+import { storiesApi, type MyStoryItem, type StoryHighlight } from '@/features/stories/api/stories'
 import type {
+  ProfileHighlight,
   ProfilePasswordPayload,
   ProfileUpdatePayload,
   ProfileView,
@@ -35,6 +40,11 @@ const successMessage = ref('')
 const profile = ref<ProfileView | null>(null)
 const editOpen = ref(false)
 const followLoading = ref(false)
+const selectedHighlight = ref<ProfileHighlight | null>(null)
+const highlightSheetOpen = ref(false)
+const myStories = ref<MyStoryItem[]>([])
+const managingHighlightId = ref<number | null>(null)
+const highlightSheetMode = ref<'list' | 'create' | 'edit'>('list')
 
 const viewerId = ref<number | null>(normalizeViewerId(getCurrentViewerId()))
 
@@ -73,6 +83,19 @@ async function loadProfile() {
     profile.value = null
   } finally {
     loading.value = false
+  }
+}
+
+async function loadMyStoriesForHighlights() {
+  if (!isOwnProfile.value) {
+    myStories.value = []
+    return
+  }
+
+  try {
+    myStories.value = await storiesApi.getMyStories()
+  } catch (error) {
+    console.error('[profile-standalone] loadMyStoriesForHighlights failed', error)
   }
 }
 
@@ -190,6 +213,59 @@ function handleOpenPost(postId: number) {
   void router.push(`/posts/${postId}`)
 }
 
+function handleOpenHighlight(highlight: ProfileHighlight) {
+  selectedHighlight.value = highlight
+}
+
+async function handleOpenCreateHighlight() {
+  managingHighlightId.value = null
+  highlightSheetMode.value = 'create'
+  await loadMyStoriesForHighlights()
+  highlightSheetOpen.value = true
+}
+
+async function handleManageHighlight(highlight: ProfileHighlight) {
+  managingHighlightId.value = highlight.id
+  highlightSheetMode.value = 'edit'
+  await loadMyStoriesForHighlights()
+  highlightSheetOpen.value = true
+}
+
+function handleCloseHighlight() {
+  selectedHighlight.value = null
+}
+
+function handleStoryHighlightsUpdated(event: Event) {
+  if (!isOwnProfile.value) return
+  void loadProfile()
+}
+
+function handleCloseHighlightSheet() {
+  highlightSheetOpen.value = false
+  managingHighlightId.value = null
+  highlightSheetMode.value = 'list'
+}
+
+async function handleHighlightsSheetUpdated(_highlights: StoryHighlight[]) {
+  await loadProfile()
+}
+
+const highlightSheetHighlights = computed<StoryHighlight[]>(() =>
+  (profile.value?.highlights ?? []).map((highlight) => ({
+    ...highlight,
+    stories: highlight.stories.map((story) => ({
+      ...story,
+      id: Number(story.id),
+    })),
+  })),
+)
+
+const highlightSheetCurrentStoryId = computed<number | null>(() => {
+  if (!managingHighlightId.value) return null
+  const highlight = profile.value?.highlights.find((item) => item.id === managingHighlightId.value)
+  return highlight?.stories[0] ? Number(highlight.stories[0].id) : null
+})
+
 watch(resolvedUserId, () => {
   editOpen.value = false
   successMessage.value = ''
@@ -201,10 +277,12 @@ onMounted(() => {
   viewerId.value = normalizeViewerId(getCurrentViewerId())
   void loadProfile()
   document.body.classList.add('profile-view')
+  window.addEventListener('story-highlights-updated', handleStoryHighlightsUpdated)
 })
 
 onUnmounted(() => {
   document.body.classList.remove('profile-view')
+  window.removeEventListener('story-highlights-updated', handleStoryHighlightsUpdated)
 })
 </script>
 
@@ -234,6 +312,14 @@ onUnmounted(() => {
         @toggle-follow="handleToggleFollow"
       />
 
+      <ProfileHighlightStrip
+        :highlights="profile.highlights"
+        :can-manage="isOwnProfile"
+        @open-highlight="handleOpenHighlight"
+        @create-highlight="handleOpenCreateHighlight"
+        @manage-highlight="handleManageHighlight"
+      />
+
       <div class="profile-tabs">
         <button class="profile-tab profile-tab--active" type="button">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
@@ -259,6 +345,36 @@ onUnmounted(() => {
         @save-profile="handleSaveProfile"
         @change-password="handleChangePassword"
       />
+
+      <Teleport to="body">
+        <StoryViewer
+          v-if="selectedHighlight && profile"
+          :stories="selectedHighlight.stories.map((story) => ({
+            id: String(story.id),
+            media_url: story.media_url,
+            media_type: story.media_type,
+            created_at: story.created_at,
+          }))"
+          :user-id="String(profile.id)"
+          :username="`${profile.username} • ${selectedHighlight.title}`"
+          :avatar_url="profile.avatar_url ?? ''"
+          @close="handleCloseHighlight"
+          @next-user="handleCloseHighlight"
+          @prev-user="handleCloseHighlight"
+        />
+
+        <StoryHighlightSheet
+          v-if="profile"
+          :open="highlightSheetOpen"
+          :current-story-id="highlightSheetCurrentStoryId"
+          :highlights="highlightSheetHighlights"
+          :stories="myStories"
+          :initial-mode="highlightSheetMode"
+          :initial-highlight-id="managingHighlightId"
+          @close="handleCloseHighlightSheet"
+          @updated="handleHighlightsSheetUpdated"
+        />
+      </Teleport>
     </template>
   </div>
 </template>

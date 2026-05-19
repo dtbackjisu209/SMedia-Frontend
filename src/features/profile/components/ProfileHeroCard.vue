@@ -24,11 +24,6 @@ const joinedLabel = computed(() => {
   }).format(date)
 })
 
-const initials = computed(() => {
-  const source = props.profile.full_name || props.profile.username || 'U'
-  return source.slice(0, 1).toUpperCase()
-})
-
 const relationshipLabel = computed(() => {
   if (props.isOwnProfile) return ''
   if (props.profile.is_following) return 'Following'
