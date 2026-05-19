@@ -16,6 +16,14 @@ export interface MyStoryItem {
   expires_at: string
 }
 
+export interface UserActiveStoryItem {
+  id: number
+  media_url: string
+  media_type: 'image' | 'video'
+  created_at: string
+  expires_at: string
+}
+
 export interface StoryHighlightStory {
   id: number
   media_url: string
@@ -101,6 +109,14 @@ export const storiesApi = {
     const data = await withStoriesFallback(
       async () => (await http.get('/stories/me')).data,
       '/stories/me',
+    )
+    return data.data
+  },
+
+  getUserStories: async (userId: number | string): Promise<UserActiveStoryItem[]> => {
+    const data = await withStoriesFallback(
+      async () => (await http.get(`/stories/users/${userId}`)).data,
+      `/stories/users/${userId}`,
     )
     return data.data
   },
