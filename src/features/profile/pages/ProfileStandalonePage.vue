@@ -15,7 +15,7 @@ import ProfileHighlightStrip from '../components/ProfileHighlightStrip.vue'
 import ProfilePostGrid from '../components/ProfilePostGrid.vue'
 import StoryViewer from '@/features/stories/components/StoryViewer.vue'
 import StoryHighlightSheet from '@/features/stories/components/StoryHighlightSheet.vue'
-import { storiesApi, type MyStoryItem, type StoryHighlight } from '@/features/stories/api/stories'
+import { storiesApi, type MyStoryItem, type StoryHighlight, type UserActiveStoryItem } from '@/features/stories/api/stories'
 import type {
   ProfileHighlight,
   ProfilePasswordPayload,
@@ -41,6 +41,8 @@ const profile = ref<ProfileView | null>(null)
 const editOpen = ref(false)
 const followLoading = ref(false)
 const selectedHighlight = ref<ProfileHighlight | null>(null)
+const activeStories = ref<UserActiveStoryItem[]>([])
+const activeStoryViewerOpen = ref(false)
 const highlightSheetOpen = ref(false)
 const myStories = ref<MyStoryItem[]>([])
 const managingHighlightId = ref<number | null>(null)
@@ -81,8 +83,18 @@ async function loadProfile() {
     console.error('[profile-standalone] loadProfile failed', error)
     errorMessage.value = 'Could not load profile right now.'
     profile.value = null
+    activeStories.value = []
   } finally {
     loading.value = false
+  }
+
+  if (!profile.value) return
+
+  try {
+    activeStories.value = await storiesApi.getUserStories(resolvedUserId.value)
+  } catch (error) {
+    console.error('[profile-standalone] loadActiveStories failed', error)
+    activeStories.value = []
   }
 }
 
@@ -217,6 +229,12 @@ function handleOpenHighlight(highlight: ProfileHighlight) {
   selectedHighlight.value = highlight
 }
 
+function handleOpenActiveStories() {
+  if (!activeStories.value.length) return
+  selectedHighlight.value = null
+  activeStoryViewerOpen.value = true
+}
+
 async function handleOpenCreateHighlight() {
   managingHighlightId.value = null
   highlightSheetMode.value = 'create'
@@ -235,7 +253,11 @@ function handleCloseHighlight() {
   selectedHighlight.value = null
 }
 
-function handleStoryHighlightsUpdated(event: Event) {
+function handleCloseActiveStories() {
+  activeStoryViewerOpen.value = false
+}
+
+function handleStoryHighlightsUpdated() {
   if (!isOwnProfile.value) return
   void loadProfile()
 }
@@ -268,6 +290,8 @@ const highlightSheetCurrentStoryId = computed<number | null>(() => {
 
 watch(resolvedUserId, () => {
   editOpen.value = false
+  activeStoryViewerOpen.value = false
+  selectedHighlight.value = null
   successMessage.value = ''
   errorMessage.value = ''
   void loadProfile()
@@ -303,12 +327,14 @@ onUnmounted(() => {
       Loading profile...
     </div>
 
-    <template v-else-if="profile">
+  <template v-else-if="profile">
       <ProfileHeroCard
         :profile="profile"
         :is-own-profile="isOwnProfile"
         :follow-loading="followLoading"
+        :has-active-story="activeStories.length > 0"
         @edit-profile="editOpen = true"
+        @open-story="handleOpenActiveStories"
         @toggle-follow="handleToggleFollow"
       />
 
@@ -347,6 +373,22 @@ onUnmounted(() => {
       />
 
       <Teleport to="body">
+        <StoryViewer
+          v-if="activeStoryViewerOpen && profile && activeStories.length > 0"
+          :stories="activeStories.map((story) => ({
+            id: String(story.id),
+            media_url: story.media_url,
+            media_type: story.media_type,
+            created_at: story.created_at,
+          }))"
+          :user-id="String(profile.id)"
+          :username="profile.username"
+          :avatar_url="profile.avatar_url ?? ''"
+          @close="handleCloseActiveStories"
+          @next-user="handleCloseActiveStories"
+          @prev-user="handleCloseActiveStories"
+        />
+
         <StoryViewer
           v-if="selectedHighlight && profile"
           :stories="selectedHighlight.stories.map((story) => ({
