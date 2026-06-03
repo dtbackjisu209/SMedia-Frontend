@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted, watch, computed } from "vue";
 import { useAuthStore } from "@/features/auth/store/auth.store";
 import { storiesApi } from "../api/stories";
+import { formatTimeAgo } from "@/shared/utils/time";
 
 const props = defineProps<{
   stories: any[];
@@ -17,6 +18,7 @@ const currentIndex = ref(0);
 const progress = ref(0);
 const isPaused = ref(false);
 const isDeleting = ref(false);
+const showDeleteConfirm = ref(false);
 let progressInterval: number | null = null;
 const STORY_DURATION = 5000; // 5s per story
 
@@ -77,11 +79,19 @@ const handleScreenClick = (e: MouseEvent) => {
 const handleDeleteStory = async () => {
   if (!currentStory.value || isDeleting.value) return;
   
-  const confirmed = confirm("Are you sure you want to delete this story?");
-  if (!confirmed) return;
-
-  isDeleting.value = true;
   isPaused.value = true;
+  showDeleteConfirm.value = true;
+};
+
+const cancelDelete = () => {
+  showDeleteConfirm.value = false;
+  isPaused.value = false;
+  startProgress();
+};
+
+const confirmDeleteAction = async () => {
+  isDeleting.value = true;
+  showDeleteConfirm.value = false;
   
   try {
     await storiesApi.deleteStory(currentStory.value.id);
@@ -147,7 +157,7 @@ watch(() => props.username, () => {
         <div class="user-info">
           <img :src="avatar_url" class="viewer-avatar" />
           <span class="viewer-username">{{ username }}</span>
-          <span class="story-time">Just now</span>
+          <span class="story-time">{{ currentStory ? formatTimeAgo(currentStory.created_at) : 'Just now' }}</span>
         </div>
         <div class="header-actions">
           <button v-if="isOwnStory" class="delete-btn" @click="handleDeleteStory" :disabled="isDeleting">
@@ -179,6 +189,20 @@ watch(() => props.username, () => {
         />
         <div v-if="currentStory?.caption" class="caption-overlay">
           {{ currentStory.caption }}
+        </div>
+      </div>
+
+      <!-- Delete Confirmation Modal -->
+      <div v-if="showDeleteConfirm" class="confirm-modal-overlay">
+        <div class="confirm-modal">
+          <h3>Delete Story?</h3>
+          <p>This will permanently remove your story. You cannot undo this action.</p>
+          <div class="confirm-actions">
+            <button class="btn-cancel" @click="cancelDelete" :disabled="isDeleting">Cancel</button>
+            <button class="btn-confirm-delete" @click="confirmDeleteAction" :disabled="isDeleting">
+              {{ isDeleting ? 'Deleting...' : 'Delete' }}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -300,6 +324,76 @@ watch(() => props.username, () => {
 .story-time {
   font-size: 12px;
   opacity: 0.7;
+}
+
+/* Modal Confirmation */
+.confirm-modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+  border-radius: 8px;
+}
+
+.confirm-modal {
+  background: #262626;
+  border-radius: 12px;
+  width: 280px;
+  overflow: hidden;
+  text-align: center;
+  color: white;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+
+.confirm-modal h3 {
+  padding: 20px 20px 10px;
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.confirm-modal p {
+  padding: 0 20px 20px;
+  font-size: 14px;
+  color: #a8a8a8;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.confirm-actions {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid #363636;
+}
+
+.confirm-actions button {
+  padding: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  width: 100%;
+}
+
+.confirm-actions button:not(:last-child) {
+  border-bottom: 1px solid #363636;
+}
+
+.btn-confirm-delete {
+  color: #ed4956 !important;
+}
+
+.btn-cancel {
+  color: white !important;
+  font-weight: 400 !important;
+}
+
+.btn-confirm-delete:hover, .btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .media-content {

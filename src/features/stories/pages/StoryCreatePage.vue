@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { storiesApi } from '../api/stories';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { resolveAvatar } from '@/shared/constants/avatar';
+import ModerationWarningModal from '../components/ModerationWarningModal.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -17,6 +18,9 @@ const caption = ref('');
 const location = ref('');
 const isUploading = ref(false);
 const uploadProgress = ref(0);
+
+const showModerationModal = ref(false);
+const moderationResult = ref<{ status: string; reason: string; category: string } | null>(null);
 
 const MAX_CAPTION_LENGTH = 300;
 
@@ -58,10 +62,10 @@ const handlePublish = async () => {
     isUploading.value = true;
     uploadProgress.value = 0;
 
-    await storiesApi.uploadStory(
+    const res = await storiesApi.uploadStory(
       selectedFile.value, 
       { 
-        caption: caption.value, 
+        content: caption.value, 
         location: location.value 
       },
       (percent) => {
@@ -71,6 +75,40 @@ const handlePublish = async () => {
 
     uploadProgress.value = 100;
     
+    // Check for moderation status
+    if (res.data?.moderation?.status === 'WARNING') {
+      const reason = res.data.moderation.reason || '';
+      const category = res.data.moderation.category;
+      
+      // Nếu là lỗi hệ thống (không gọi được AI) -> Bỏ qua cho đăng luôn
+      const isServiceError = reason.includes('Hệ thống kiểm duyệt') || 
+                             reason.includes('Không thể kiểm duyệt') ||
+                             reason.includes('skipped');
+
+      if (isServiceError) {
+        emit('success');
+        emit('close');
+        setTimeout(() => router.push('/'), 500);
+        return;
+      }
+
+      // Nếu AI có phản hồi (không phải lỗi hệ thống)
+      // Chặn ngay các thể loại nghiêm trọng cho dù chỉ là WARNING
+      if (category === 'violence' || category === 'sexual' || category === 'hate') {
+        moderationResult.value = {
+          ...res.data.moderation,
+          status: 'VIOLATION' // Ép hiển thị là VIOLATION để người dùng không cố đăng
+        };
+        showModerationModal.value = true;
+        return;
+      }
+
+      // Các cảnh báo nhẹ khác (spam, normal) -> Hiển thị Modal để người dùng xem rồi quyết định
+      moderationResult.value = res.data.moderation;
+      showModerationModal.value = true;
+      return;
+    }
+
     emit('success');
     emit('close');
 
@@ -78,9 +116,28 @@ const handlePublish = async () => {
       router.push('/');
     }, 500);
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to upload story:', error);
-    alert('Failed to upload story. Please try again.');
+    
+    // Check if it's a moderation violation
+    const errorMessage = error.response?.data?.message || '';
+    if (errorMessage.includes('vi phạm chính sách cộng đồng')) {
+      // Extract category from message if possible: "vi phạm chính sách cộng đồng (Yếu tố kinh dị): ..."
+      let category: any = 'violence';
+      if (errorMessage.includes('kinh dị')) category = 'horror';
+      else if (errorMessage.includes('nhạy cảm')) category = 'sexual';
+      else if (errorMessage.includes('bạo lực')) category = 'violence';
+
+      const reasonMatch = errorMessage.split(': ')[1];
+      moderationResult.value = {
+        status: 'VIOLATION',
+        reason: reasonMatch || 'Nội dung của bạn vi phạm chính sách cộng đồng.',
+        category: category
+      };
+      showModerationModal.value = true;
+    } else {
+      alert(errorMessage || 'Failed to upload story. Please try again.');
+    }
   } finally {
     isUploading.value = false;
   }
@@ -135,6 +192,12 @@ const isVideo = computed(() => {
             <div class="preview-container">
               <img v-if="!isVideo" :src="filePreview" class="preview-media" />
               <video v-else :src="filePreview" class="preview-media" controls autoplay muted loop></video>
+              
+              <!-- Live Caption Preview -->
+              <div v-if="caption" class="caption-preview-overlay">
+                {{ caption }}
+              </div>
+
               <button class="btn-remove-file" @click="removeFile" title="Remove file">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
               </button>
@@ -197,6 +260,13 @@ const isVideo = computed(() => {
         </div>
       </div>
     </div>
+
+    <!-- Moderation Warning Modal -->
+    <ModerationWarningModal 
+      :show="showModerationModal" 
+      :result="moderationResult"
+      @close="showModerationModal = false"
+    />
   </div>
 </template>
 
@@ -327,6 +397,23 @@ const isVideo = computed(() => {
   max-width: 100%;
   max-height: 500px;
   object-fit: contain;
+}
+
+.caption-preview-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: white;
+  padding: 30px 15px 15px;
+  background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+  font-size: 14px;
+  pointer-events: none;
+  word-break: break-word;
+  max-height: 50%;
+  overflow: hidden;
+  z-index: 5;
 }
 
 .btn-remove-file {
