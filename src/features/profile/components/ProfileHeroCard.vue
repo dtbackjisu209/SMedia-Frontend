@@ -7,11 +7,13 @@ const props = defineProps<{
   profile: ProfileView
   isOwnProfile?: boolean
   followLoading?: boolean
+  hasActiveStory?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'edit-profile'): void
   (e: 'toggle-follow'): void
+  (e: 'open-story'): void
 }>()
 
 const joinedLabel = computed(() => {
@@ -22,11 +24,6 @@ const joinedLabel = computed(() => {
     month: '2-digit',
     year: 'numeric',
   }).format(date)
-})
-
-const initials = computed(() => {
-  const source = props.profile.full_name || props.profile.username || 'U'
-  return source.slice(0, 1).toUpperCase()
 })
 
 const relationshipLabel = computed(() => {
@@ -47,13 +44,21 @@ function formatCount(n: number): string {
   <section class="hero">
     <!-- Left: Avatar -->
     <div class="hero__avatar-col">
-      <div class="hero__avatar-ring">
+      <button
+        type="button"
+        class="hero__avatar-button"
+        :class="{ 'hero__avatar-button--clickable': hasActiveStory }"
+        :disabled="!hasActiveStory"
+        @click="emit('open-story')"
+      >
+      <div class="hero__avatar-ring" :class="{ 'hero__avatar-ring--inactive': !hasActiveStory }">
         <img
           :src="resolveAvatar(profile.avatar_url)"
           :alt="profile.username"
           class="hero__avatar-img"
         />
       </div>
+      </button>
     </div>
 
     <!-- Right: Info -->
@@ -147,6 +152,22 @@ function formatCount(n: number): string {
   justify-content: center;
 }
 
+.hero__avatar-button {
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  cursor: default;
+}
+
+.hero__avatar-button:disabled {
+  opacity: 1;
+}
+
+.hero__avatar-button--clickable {
+  cursor: pointer;
+}
+
 .hero__avatar-ring {
   width: 150px;
   height: 150px;
@@ -154,6 +175,10 @@ function formatCount(n: number): string {
   padding: 3px;
   background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
+}
+
+.hero__avatar-ring--inactive {
+  background: linear-gradient(135deg, #dbe4f0 0%, #f8fafc 100%);
 }
 
 .hero__avatar-img {

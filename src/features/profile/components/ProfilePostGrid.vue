@@ -27,7 +27,7 @@ const orderedPosts = computed(() =>
       <p>No posts yet.</p>
     </div>
 
-    <!-- Masonry grid -->
+    <!-- Uniform grid -->
     <div v-else class="pg__grid">
       <article
         v-for="post in orderedPosts"
@@ -106,26 +106,25 @@ const orderedPosts = computed(() =>
 
 /* ── Masonry grid ───────────────────────────────────────────────────────────── */
 .pg__grid {
-  column-count: 3;
-  column-gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }
 
 @media (max-width: 900px) {
   .pg__grid {
-    column-count: 2;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 540px) {
   .pg__grid {
-    column-count: 1;
+    grid-template-columns: 1fr;
   }
 }
 
 /* ── Card ───────────────────────────────────────────────────────────────────── */
 .pg__card {
-  break-inside: avoid;
-  margin-bottom: 12px;
   border-radius: 14px;
   overflow: hidden;
   cursor: pointer;
@@ -149,13 +148,16 @@ const orderedPosts = computed(() =>
 .pg__media {
   position: relative;
   overflow: hidden;
+  aspect-ratio: 4 / 5;
+  background: #f8fafc;
 }
 
 .pg__img {
   width: 100%;
-  height: auto;
+  height: 100%;
   display: block;
   object-fit: cover;
+  object-position: center;
   transition: transform 0.3s ease;
 }
 
@@ -165,7 +167,7 @@ const orderedPosts = computed(() =>
 
 .pg__img-fallback {
   width: 100%;
-  min-height: 180px;
+  height: 100%;
   display: grid;
   place-items: center;
   background: linear-gradient(135deg, #f1f5f9, #e0e7ff);

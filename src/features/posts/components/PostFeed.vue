@@ -7,6 +7,7 @@ import { useAuthStore } from '@/features/auth/store/auth.store'
 import { useFollowStore } from '@/features/auth/store/follow.store'
 import DeletePostConfirmModal from '@/features/posts/components/DeletePostConfirmModal.vue'
 import type { Post } from '@/shared/types/social'
+import { resolveAvatar } from '@/shared/constants/avatar'
 
 const postsStore = usePostsStore()
 const authStore = useAuthStore()
@@ -135,7 +136,11 @@ async function confirmDeletePost(): Promise<void> {
       <li v-for="post in postsStore.posts" :key="post.id" class="card item" @click="openPostDetail(post.id)">
         <header class="item-head">
           <div class="author-wrap">
-            <span class="avatar">{{ (post.author.fullName || post.author.username || '?')[0].toUpperCase() }}</span>
+            <img
+              :src="resolveAvatar(post.author.avatarUrl)"
+              :alt="post.author.fullName || post.author.username || 'Avatar'"
+              class="avatar avatar--image"
+            />
             <div class="author-meta">
               <strong class="author">{{ post.author.fullName || post.author.username }}</strong>
               <p class="time muted">{{ dayjs(post.createdAt).format('HH:mm DD/MM/YYYY') }}</p>
@@ -258,13 +263,18 @@ async function confirmDeletePost(): Promise<void> {
 .avatar {
   width: 38px;
   height: 38px;
-  border-radius: 12px;
+  border-radius: 50%;
   background: var(--primary-soft);
   color: var(--primary);
   display: grid;
   place-items: center;
   font-weight: 700;
   font-size: 14px;
+}
+
+.avatar--image {
+  object-fit: cover;
+  background: #e2e8f0;
 }
 
 .author-meta {
