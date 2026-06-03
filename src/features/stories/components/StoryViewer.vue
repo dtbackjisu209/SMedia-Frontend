@@ -26,55 +26,55 @@ const currentStory = computed(() => props.stories[currentIndex.value]);
 const isOwnStory = computed(() => props.userId === authStore.userId);
 
 const startProgress = () => {
-  stopProgress();
-  progress.value = 0;
-  const startTime = Date.now();
+  stopProgress()
+  progress.value = 0
+  const startTime = Date.now()
   
   progressInterval = window.setInterval(() => {
     if (!isPaused.value) {
-      const elapsed = Date.now() - startTime;
-      progress.value = Math.min((elapsed / STORY_DURATION) * 100, 100);
+      const elapsed = Date.now() - startTime
+      progress.value = Math.min((elapsed / STORY_DURATION) * 100, 100)
       
       if (progress.value >= 100) {
-        nextStory();
+        nextStory()
       }
     }
-  }, 32);
-};
+  }, 32)
+}
 
 const stopProgress = () => {
   if (progressInterval) {
-    clearInterval(progressInterval);
-    progressInterval = null;
+    clearInterval(progressInterval)
+    progressInterval = null
   }
-};
+}
 
 const nextStory = () => {
   if (currentIndex.value < props.stories.length - 1) {
-    currentIndex.value++;
-    startProgress();
+    currentIndex.value++
+    startProgress()
   } else {
-    emit("next-user");
+    emit('next-user')
   }
-};
+}
 
 const prevStory = () => {
   if (currentIndex.value > 0) {
-    currentIndex.value--;
-    startProgress();
+    currentIndex.value--
+    startProgress()
   } else {
-    emit("prev-user");
+    emit('prev-user')
   }
-};
+}
 
 const handleScreenClick = (e: MouseEvent) => {
-  const width = window.innerWidth;
+  const width = window.innerWidth
   if (e.clientX < width / 3) {
-    prevStory();
+    prevStory()
   } else {
-    nextStory();
+    nextStory()
   }
-};
+}
 
 const handleDeleteStory = async () => {
   if (!currentStory.value || isDeleting.value) return;
@@ -118,18 +118,38 @@ const confirmDeleteAction = async () => {
 };
 
 onMounted(() => {
-  startProgress();
-});
+  startProgress()
+  void loadMyHighlights()
+})
 
 onUnmounted(() => {
-  stopProgress();
-});
+  stopProgress()
+  if (highlightMessageTimeout) {
+    window.clearTimeout(highlightMessageTimeout)
+  }
+})
 
-// Reset if user changes (next-user/prev-user)
 watch(() => props.username, () => {
-  currentIndex.value = 0;
-  startProgress();
-});
+  currentIndex.value = 0
+  highlightError.value = ''
+  highlightMessage.value = ''
+  startProgress()
+  void loadMyHighlights()
+})
+
+watch(() => props.userId, () => {
+  void loadMyHighlights()
+})
+
+watch(isHighlightSheetOpen, (open) => {
+  if (open) {
+    stopProgress()
+    isPaused.value = true
+    return
+  }
+
+  isPaused.value = false
+})
 </script>
 
 <template>
@@ -155,7 +175,7 @@ watch(() => props.username, () => {
       <!-- Header -->
       <header class="story-header">
         <div class="user-info">
-          <img :src="avatar_url" class="viewer-avatar" />
+          <img :src="resolveAvatar(avatar_url)" class="viewer-avatar" />
           <span class="viewer-username">{{ username }}</span>
           <span class="story-time">{{ currentStory ? formatTimeAgo(currentStory.created_at) : 'Just now' }}</span>
         </div>
@@ -172,8 +192,8 @@ watch(() => props.username, () => {
       <!-- Media Content -->
       <div class="media-content" @click="handleScreenClick">
         <video 
-          v-if="currentStory?.type === 'video'"
-          :src="currentStory?.media_url" 
+          v-if="currentStoryType === 'video'"
+          :src="currentStoryMediaUrl" 
           class="main-media" 
           autoplay
           muted
@@ -183,12 +203,18 @@ watch(() => props.username, () => {
         ></video>
         <img 
           v-else
-          :src="currentStory?.media_url" 
+          :src="currentStoryMediaUrl" 
           class="main-media" 
           @error="console.error('Failed to load story media')"
         />
         <div v-if="currentStory?.caption" class="caption-overlay">
           {{ currentStory.caption }}
+        </div>
+        <div v-if="highlightMessage" class="highlight-toast">
+          {{ highlightMessage }}
+        </div>
+        <div v-if="highlightError" class="highlight-error">
+          {{ highlightError }}
         </div>
       </div>
 
@@ -215,6 +241,14 @@ watch(() => props.username, () => {
       </button>
     </div>
   </div>
+  <StoryHighlightSheet
+    :open="isHighlightSheetOpen"
+    :current-story-id="currentStoryId || null"
+    :highlights="myHighlights"
+    :stories="myStories"
+    @close="handleCloseHighlightSheet"
+    @updated="handleHighlightUpdate"
+  />
 </template>
 
 <style scoped>
@@ -446,5 +480,73 @@ watch(() => props.username, () => {
   background: none;
   border: none;
   cursor: pointer;
+}
+
+.highlight-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  background: rgba(0, 0, 0, 0.85);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.highlight-btn svg {
+  display: block;
+}
+
+.highlight-btn path {
+  fill: #0b0b0b;
+  stroke: #fff;
+  stroke-width: 1.7;
+  transition: fill 0.2s ease, stroke 0.2s ease;
+}
+
+.highlight-btn:hover {
+  transform: scale(1.06);
+}
+
+.highlight-btn--active {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.highlight-btn--active path {
+  fill: #fff;
+  stroke: #fff;
+}
+
+.highlight-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.highlight-toast,
+.highlight-error {
+  position: absolute;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  padding: 9px 14px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  pointer-events: none;
+}
+
+.highlight-toast {
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.highlight-error {
+  background: rgba(127, 29, 29, 0.86);
+  border: 1px solid rgba(248, 113, 113, 0.35);
 }
 </style>

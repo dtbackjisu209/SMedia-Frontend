@@ -24,6 +24,23 @@ export interface ProfilePost {
   media: ProfilePostMedia[]
 }
 
+export interface ProfileHighlightStory {
+  id: number
+  media_url: string
+  media_type: 'image' | 'video'
+  created_at: string
+  expires_at: string
+}
+
+export interface ProfileHighlight {
+  id: number
+  title: string
+  cover_media_url: string | null
+  created_at: string
+  story_count: number
+  stories: ProfileHighlightStory[]
+}
+
 export interface ProfileView {
   id: number
   username: string
@@ -37,6 +54,7 @@ export interface ProfileView {
   post_count: number
   is_following: boolean
   has_pending_request: boolean
+  highlights: ProfileHighlight[]
   posts: ProfilePost[]
 }
 

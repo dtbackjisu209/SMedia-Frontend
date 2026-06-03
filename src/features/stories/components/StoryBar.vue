@@ -114,6 +114,7 @@ defineExpose({ refresh: fetchStories });
       <StoryViewer 
         v-if="selectedUserIndex !== null && userStoriesList && userStoriesList[selectedUserIndex]"
         :stories="userStoriesList[selectedUserIndex].stories"
+        :user-id="userStoriesList[selectedUserIndex].userId"
         :username="userStoriesList[selectedUserIndex].username"
         :avatar_url="userStoriesList[selectedUserIndex].avatar_url"
         :userId="userStoriesList[selectedUserIndex].userId"
