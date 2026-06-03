@@ -3,6 +3,7 @@ import AuthLayout from '@/app/layouts/AuthLayout.vue'
 import MainLayout from '@/app/layouts/MainLayout.vue'
 import LoginPage from '@/features/auth/pages/LoginPage.vue'
 import RegisterPage from '@/features/auth/pages/RegisterPage.vue'
+import ForgotPasswordPage from '@/features/auth/pages/ForgotPasswordPage.vue'
 import FeedPage from '@/features/posts/pages/FeedPage.vue'
 import PostDetailPage from '@/features/posts/pages/PostDetailPage.vue'
 import NotificationPage from '@/features/notifications/pages/NotificationPage.vue'
@@ -32,6 +33,7 @@ const router = createRouter({
       children: [
         { path: ROUTE_PATHS.login.slice(1), component: LoginPage },
         { path: ROUTE_PATHS.register.slice(1), component: RegisterPage },
+        { path: 'forgot-password', component: ForgotPasswordPage },
       ],
     },
   ],

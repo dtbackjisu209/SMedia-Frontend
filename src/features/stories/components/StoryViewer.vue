@@ -4,6 +4,7 @@ import { useAuthStore } from '@/features/auth/store/auth.store'
 import { resolveAvatar, resolveMediaUrl } from '@/shared/constants/avatar'
 import StoryHighlightSheet from './StoryHighlightSheet.vue'
 import { storiesApi, type MyStoryItem, type StoryHighlight } from '../api/stories'
+import { formatTimeAgo } from '@/shared/utils/time'
 
 const props = defineProps<{
   stories: Array<{
@@ -19,7 +20,7 @@ const props = defineProps<{
   avatar_url: string
 }>()
 
-const emit = defineEmits(['close', 'next-user', 'prev-user'])
+const emit = defineEmits(['close', 'next-user', 'prev-user', 'story-deleted'])
 
 const authStore = useAuthStore()
 
@@ -35,6 +36,10 @@ const isHighlightSheetOpen = ref(false)
 let progressInterval: number | null = null
 let highlightMessageTimeout: number | null = null
 const STORY_DURATION = 5000
+
+// Delete story states
+const isDeleting = ref(false)
+const showDeleteConfirm = ref(false)
 
 const currentStory = computed(() => props.stories[currentIndex.value])
 const currentStoryId = computed(() => Number(currentStory.value?.id ?? 0))
@@ -105,6 +110,47 @@ function handleCloseHighlightSheet() {
   isHighlightSheetOpen.value = false
   isPaused.value = false
   startProgress()
+}
+
+// Delete story actions
+const handleDeleteStory = async () => {
+  if (!currentStory.value || isDeleting.value) return
+  isPaused.value = true
+  showDeleteConfirm.value = true
+}
+
+const cancelDelete = () => {
+  showDeleteConfirm.value = false
+  isPaused.value = false
+  startProgress()
+}
+
+const confirmDeleteAction = async () => {
+  isDeleting.value = true
+  showDeleteConfirm.value = false
+  
+  try {
+    await storiesApi.deleteStory(currentStory.value.id)
+    emit('story-deleted', { userId: props.userId, storyId: currentStory.value.id })
+    
+    // If it was the last story, close or go to next user
+    if (props.stories.length <= 1) {
+      emit('close')
+    } else {
+      // Remove local story and adjust index if necessary
+      if (currentIndex.value >= props.stories.length - 1) {
+        currentIndex.value--
+      }
+      isDeleting.value = false
+      isPaused.value = false
+      startProgress()
+    }
+  } catch (error) {
+    console.error('Failed to delete story:', error)
+    alert('Failed to delete story. Please try again.')
+    isDeleting.value = false
+    isPaused.value = false
+  }
 }
 
 const startProgress = () => {
@@ -218,9 +264,15 @@ watch(isHighlightSheetOpen, (open) => {
         <div class="user-info">
           <img :src="resolveAvatar(avatar_url)" class="viewer-avatar" />
           <span class="viewer-username">{{ username }}</span>
-          <span class="story-time">Just now</span>
+          <span class="story-time">{{ currentStory && currentStory.created_at ? formatTimeAgo(currentStory.created_at) : 'Just now' }}</span>
         </div>
         <div class="story-actions">
+          <!-- Delete button -->
+          <button v-if="isOwnStory" class="delete-btn" @click.stop="handleDeleteStory" :disabled="isDeleting">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+          </button>
+          
+          <!-- Highlight button -->
           <button
             v-if="isOwnStory"
             class="highlight-btn"
@@ -235,6 +287,8 @@ watch(isHighlightSheetOpen, (open) => {
               />
             </svg>
           </button>
+          
+          <!-- Close button -->
           <button class="close-btn" @click="emit('close')">
              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
@@ -259,15 +313,17 @@ watch(isHighlightSheetOpen, (open) => {
           class="main-media" 
           @error="console.error('Failed to load story media')"
         />
-        <div v-if="currentStory?.caption" class="caption-overlay">
-          {{ currentStory.caption }}
-        </div>
         <div v-if="highlightMessage" class="highlight-toast">
           {{ highlightMessage }}
         </div>
         <div v-if="highlightError" class="highlight-error">
           {{ highlightError }}
         </div>
+      </div>
+
+      <!-- Caption below media (outside) -->
+      <div v-if="currentStory?.caption" class="story-caption-bottom">
+        {{ currentStory.caption }}
       </div>
 
       <!-- Navigation Arrows (Desktop) -->
@@ -277,6 +333,20 @@ watch(isHighlightSheetOpen, (open) => {
       <button class="nav-btn next" @click.stop="nextStory">
         <svg viewBox="0 0 24 24" width="24" height="24" fill="white"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
       </button>
+
+      <!-- Delete Confirmation Modal -->
+      <div v-if="showDeleteConfirm" class="confirm-modal-overlay">
+        <div class="confirm-modal">
+          <h3>Delete Story?</h3>
+          <p>This will permanently remove your story. You cannot undo this action.</p>
+          <div class="confirm-actions">
+            <button class="btn-cancel" @click="cancelDelete" :disabled="isDeleting">Cancel</button>
+            <button class="btn-confirm-delete" @click="confirmDeleteAction" :disabled="isDeleting">
+              {{ isDeleting ? 'Deleting...' : 'Delete' }}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   <StoryHighlightSheet
@@ -393,16 +463,18 @@ watch(isHighlightSheetOpen, (open) => {
   object-fit: contain;
 }
 
-.caption-overlay {
-  position: absolute;
-  bottom: 80px;
-  left: 0;
-  right: 0;
+.story-caption-bottom {
+  padding: 16px 24px;
+  background: #0c0c0c;
+  color: #ffffff;
   text-align: center;
-  color: white;
-  padding: 20px;
-  background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
-  font-size: 15px;
+  font-size: 14px;
+  line-height: 1.5;
+  border-top: 1px solid #1a1a1a;
+  word-break: break-word;
+  max-height: 120px;
+  overflow-y: auto;
+  z-index: 10;
 }
 
 .nav-btn {
@@ -428,6 +500,96 @@ watch(isHighlightSheetOpen, (open) => {
   background: none;
   border: none;
   cursor: pointer;
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s;
+}
+
+.delete-btn:hover {
+  opacity: 0.7;
+}
+
+.delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Modal Confirmation */
+.confirm-modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+  border-radius: 8px;
+}
+
+.confirm-modal {
+  background: #262626;
+  border-radius: 12px;
+  width: 280px;
+  overflow: hidden;
+  text-align: center;
+  color: white;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+
+.confirm-modal h3 {
+  padding: 20px 20px 10px;
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.confirm-modal p {
+  padding: 0 20px 20px;
+  font-size: 14px;
+  color: #a8a8a8;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.confirm-actions {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid #363636;
+}
+
+.confirm-actions button {
+  padding: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  width: 100%;
+}
+
+.confirm-actions button:not(:last-child) {
+  border-bottom: 1px solid #363636;
+}
+
+.btn-confirm-delete {
+  color: #ed4956 !important;
+}
+
+.btn-cancel {
+  color: white !important;
+  font-weight: 400 !important;
+}
+
+.btn-confirm-delete:hover, .btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .highlight-btn {

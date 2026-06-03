@@ -4,6 +4,7 @@ import { http } from '@/shared/api/http'
 export interface Story {
   id: string
   media_url: string
+  caption?: string
   created_at: string
   type: 'image' | 'video'
 }
@@ -167,17 +168,15 @@ export const storiesApi = {
   },
 
 
-  uploadStory: async (file: File, params?: { caption?: string; location?: string }, onProgress?: (percent: number) => void): Promise<void> => {
+  uploadStory: async (file: File, params?: { content?: string; location?: string }, onProgress?: (percent: number) => void): Promise<any> => {
     const formData = new FormData()
     formData.append('file', file) 
     
-    if (params?.caption) formData.append('caption', params.caption)
+    if (params?.content) formData.append('content', params.content)
     if (params?.location) formData.append('location', params.location)
 
-    await http.post('/stories', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      },
+    const { data } = await http.post('/stories', formData, {
+      timeout: 60000,
       onUploadProgress: (progressEvent) => {
         if (onProgress && progressEvent.total) {
           const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total)
@@ -185,5 +184,10 @@ export const storiesApi = {
         }
       }
     })
+    return data
+  },
+
+  deleteStory: async (id: string): Promise<void> => {
+    await http.delete(`/stories/${id}`)
   }
 }

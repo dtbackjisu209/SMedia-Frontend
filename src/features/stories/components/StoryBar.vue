@@ -120,6 +120,7 @@ defineExpose({ refresh: fetchStories });
         @close="closeStory"
         @next-user="handleNextUser"
         @prev-user="handlePrevUser"
+        @story-deleted="fetchStories"
       />
     </Teleport>
 
