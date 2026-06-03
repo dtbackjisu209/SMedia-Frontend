@@ -176,9 +176,7 @@ export const storiesApi = {
     if (params?.location) formData.append('location', params.location)
 
     const { data } = await http.post('/stories', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      },
+      timeout: 60000,
       onUploadProgress: (progressEvent) => {
         if (onProgress && progressEvent.total) {
           const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total)

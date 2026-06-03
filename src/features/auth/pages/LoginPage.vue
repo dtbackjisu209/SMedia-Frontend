@@ -63,6 +63,7 @@ async function onSubmit() {
       <button class="button" type="submit" :disabled="authStore.isLoading">
         {{ authStore.isLoading ? 'Logging in...' : 'Login' }}
       </button>
+      <RouterLink class="switch-link" to="/forgot-password">Forgot password?</RouterLink>
       <RouterLink class="switch-link" to="/register">Need an account? Register now</RouterLink>
     </form>
   </section>

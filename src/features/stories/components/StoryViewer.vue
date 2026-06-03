@@ -1,29 +1,157 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, computed } from "vue";
-import { useAuthStore } from "@/features/auth/store/auth.store";
-import { storiesApi } from "../api/stories";
-import { formatTimeAgo } from "@/shared/utils/time";
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useAuthStore } from '@/features/auth/store/auth.store'
+import { resolveAvatar, resolveMediaUrl } from '@/shared/constants/avatar'
+import StoryHighlightSheet from './StoryHighlightSheet.vue'
+import { storiesApi, type MyStoryItem, type StoryHighlight } from '../api/stories'
+import { formatTimeAgo } from '@/shared/utils/time'
 
 const props = defineProps<{
-  stories: any[];
-  username: string;
-  avatar_url: string;
-  userId: string;
-}>();
+  stories: Array<{
+    id: string
+    media_url: string
+    created_at?: string
+    type?: 'image' | 'video'
+    media_type?: 'image' | 'video'
+    caption?: string
+  }>
+  userId: string
+  username: string
+  avatar_url: string
+}>()
 
-const emit = defineEmits(["close", "next-user", "prev-user", "story-deleted"]);
+const emit = defineEmits(['close', 'next-user', 'prev-user', 'story-deleted'])
 
-const authStore = useAuthStore();
-const currentIndex = ref(0);
-const progress = ref(0);
-const isPaused = ref(false);
-const isDeleting = ref(false);
-const showDeleteConfirm = ref(false);
-let progressInterval: number | null = null;
-const STORY_DURATION = 5000; // 5s per story
+const authStore = useAuthStore()
 
-const currentStory = computed(() => props.stories[currentIndex.value]);
-const isOwnStory = computed(() => props.userId === authStore.userId);
+const currentIndex = ref(0)
+const progress = ref(0)
+const isPaused = ref(false)
+const highlightMessage = ref('')
+const highlightError = ref('')
+const isHighlightLoading = ref(false)
+const myHighlights = ref<StoryHighlight[]>([])
+const myStories = ref<MyStoryItem[]>([])
+const isHighlightSheetOpen = ref(false)
+let progressInterval: number | null = null
+let highlightMessageTimeout: number | null = null
+const STORY_DURATION = 5000
+
+// Delete story states
+const isDeleting = ref(false)
+const showDeleteConfirm = ref(false)
+
+const currentStory = computed(() => props.stories[currentIndex.value])
+const currentStoryId = computed(() => Number(currentStory.value?.id ?? 0))
+const viewerUserId = computed(() => String(props.userId ?? ''))
+const authUserId = computed(() => String(authStore.userId ?? ''))
+const isOwnStory = computed(() => Boolean(viewerUserId.value) && viewerUserId.value === authUserId.value)
+const currentStoryType = computed(() => currentStory.value?.type ?? currentStory.value?.media_type ?? 'image')
+const currentStoryMediaUrl = computed(() => resolveMediaUrl(currentStory.value?.media_url))
+const highlightedEntry = computed(() => {
+  const storyId = currentStoryId.value
+  if (!storyId) return null
+
+  for (const highlight of myHighlights.value) {
+    if (highlight.stories.some((story) => Number(story.id) === storyId)) {
+      return highlight
+    }
+  }
+
+  return null
+})
+const isCurrentStoryHighlighted = computed(() => Boolean(highlightedEntry.value))
+
+function setTransientMessage(message: string) {
+  highlightMessage.value = message
+  if (highlightMessageTimeout) {
+    window.clearTimeout(highlightMessageTimeout)
+  }
+  highlightMessageTimeout = window.setTimeout(() => {
+    highlightMessage.value = ''
+  }, 1800)
+}
+
+async function loadMyHighlights() {
+  if (!isOwnStory.value) {
+    myHighlights.value = []
+    myStories.value = []
+    return
+  }
+
+  try {
+    myHighlights.value = await storiesApi.getMyHighlights()
+  } catch (error) {
+    console.error('Failed to load highlights:', error)
+  }
+
+  try {
+    myStories.value = await storiesApi.getMyStories()
+  } catch (error) {
+    console.error('Failed to load my stories:', error)
+  }
+}
+
+function openHighlightSheet() {
+  if (!isOwnStory.value || isHighlightLoading.value) return
+  highlightError.value = ''
+  isHighlightSheetOpen.value = true
+  stopProgress()
+  isPaused.value = true
+}
+
+async function handleHighlightUpdate(highlights: StoryHighlight[]) {
+  myHighlights.value = highlights.filter((highlight) => highlight.story_count > 0)
+  await loadMyHighlights()
+  setTransientMessage('Highlights updated')
+}
+
+function handleCloseHighlightSheet() {
+  isHighlightSheetOpen.value = false
+  isPaused.value = false
+  startProgress()
+}
+
+// Delete story actions
+const handleDeleteStory = async () => {
+  if (!currentStory.value || isDeleting.value) return
+  isPaused.value = true
+  showDeleteConfirm.value = true
+}
+
+const cancelDelete = () => {
+  showDeleteConfirm.value = false
+  isPaused.value = false
+  startProgress()
+}
+
+const confirmDeleteAction = async () => {
+  isDeleting.value = true
+  showDeleteConfirm.value = false
+  
+  try {
+    await storiesApi.deleteStory(currentStory.value.id)
+    emit('story-deleted', { userId: props.userId, storyId: currentStory.value.id })
+    
+    // If it was the last story, close or go to next user
+    if (props.stories.length <= 1) {
+      emit('close')
+    } else {
+      // Remove local story and adjust index if necessary
+      if (currentIndex.value >= props.stories.length - 1) {
+        currentIndex.value--
+      }
+      isDeleting.value = false
+      isPaused.value = false
+      startProgress()
+    }
+  } catch (error) {
+    console.error('Failed to delete story:', error)
+    alert('Failed to delete story. Please try again.')
+    isDeleting.value = false
+    isPaused.value = false
+  }
+}
 
 const startProgress = () => {
   stopProgress()
@@ -75,47 +203,6 @@ const handleScreenClick = (e: MouseEvent) => {
     nextStory()
   }
 }
-
-const handleDeleteStory = async () => {
-  if (!currentStory.value || isDeleting.value) return;
-  
-  isPaused.value = true;
-  showDeleteConfirm.value = true;
-};
-
-const cancelDelete = () => {
-  showDeleteConfirm.value = false;
-  isPaused.value = false;
-  startProgress();
-};
-
-const confirmDeleteAction = async () => {
-  isDeleting.value = true;
-  showDeleteConfirm.value = false;
-  
-  try {
-    await storiesApi.deleteStory(currentStory.value.id);
-    emit("story-deleted", { userId: props.userId, storyId: currentStory.value.id });
-    
-    // If it was the last story, close or go to next user
-    if (props.stories.length <= 1) {
-      emit("close");
-    } else {
-      // Remove local story and adjust index if necessary
-      if (currentIndex.value >= props.stories.length - 1) {
-        currentIndex.value--;
-      }
-      isDeleting.value = false;
-      isPaused.value = false;
-      startProgress();
-    }
-  } catch (error) {
-    console.error("Failed to delete story:", error);
-    alert("Failed to delete story. Please try again.");
-    isDeleting.value = false;
-    isPaused.value = false;
-  }
-};
 
 onMounted(() => {
   startProgress()
@@ -177,14 +264,33 @@ watch(isHighlightSheetOpen, (open) => {
         <div class="user-info">
           <img :src="resolveAvatar(avatar_url)" class="viewer-avatar" />
           <span class="viewer-username">{{ username }}</span>
-          <span class="story-time">{{ currentStory ? formatTimeAgo(currentStory.created_at) : 'Just now' }}</span>
+          <span class="story-time">{{ currentStory && currentStory.created_at ? formatTimeAgo(currentStory.created_at) : 'Just now' }}</span>
         </div>
-        <div class="header-actions">
-          <button v-if="isOwnStory" class="delete-btn" @click="handleDeleteStory" :disabled="isDeleting">
+        <div class="story-actions">
+          <!-- Delete button -->
+          <button v-if="isOwnStory" class="delete-btn" @click.stop="handleDeleteStory" :disabled="isDeleting">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
           </button>
+          
+          <!-- Highlight button -->
+          <button
+            v-if="isOwnStory"
+            class="highlight-btn"
+            :class="{ 'highlight-btn--active': isCurrentStoryHighlighted }"
+            :disabled="isHighlightLoading"
+            type="button"
+            @click.stop="openHighlightSheet"
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <path
+                d="M12 21s-6.716-4.377-9.193-8.194C.978 10.023 1.404 6.2 4.56 4.4c2.254-1.286 4.963-.68 6.44 1.23 1.477-1.91 4.187-2.516 6.44-1.23 3.156 1.8 3.582 5.623 1.753 8.406C18.716 16.623 12 21 12 21Z"
+              />
+            </svg>
+          </button>
+          
+          <!-- Close button -->
           <button class="close-btn" @click="emit('close')">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
         </div>
       </header>
@@ -207,9 +313,6 @@ watch(isHighlightSheetOpen, (open) => {
           class="main-media" 
           @error="console.error('Failed to load story media')"
         />
-        <div v-if="currentStory?.caption" class="caption-overlay">
-          {{ currentStory.caption }}
-        </div>
         <div v-if="highlightMessage" class="highlight-toast">
           {{ highlightMessage }}
         </div>
@@ -217,6 +320,19 @@ watch(isHighlightSheetOpen, (open) => {
           {{ highlightError }}
         </div>
       </div>
+
+      <!-- Caption below media (outside) -->
+      <div v-if="currentStory?.caption" class="story-caption-bottom">
+        {{ currentStory.caption }}
+      </div>
+
+      <!-- Navigation Arrows (Desktop) -->
+      <button class="nav-btn prev" @click.stop="prevStory">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="white"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      </button>
+      <button class="nav-btn next" @click.stop="nextStory">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="white"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
+      </button>
 
       <!-- Delete Confirmation Modal -->
       <div v-if="showDeleteConfirm" class="confirm-modal-overlay">
@@ -231,14 +347,6 @@ watch(isHighlightSheetOpen, (open) => {
           </div>
         </div>
       </div>
-
-      <!-- Navigation Arrows (Desktop) -->
-      <button class="nav-btn prev" @click.stop="prevStory">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="white"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-      </button>
-      <button class="nav-btn next" @click.stop="nextStory">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="white"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
-      </button>
     </div>
   </div>
   <StoryHighlightSheet
@@ -306,34 +414,8 @@ watch(isHighlightSheetOpen, (open) => {
   position: absolute;
   top: 10px;
   width: 100%;
-  z-index: 20;
+  z-index: 10;
   background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.delete-btn, .close-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 5px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: opacity 0.2s;
-}
-
-.delete-btn:hover, .close-btn:hover {
-  opacity: 0.7;
-}
-
-.delete-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .user-info {
@@ -360,11 +442,91 @@ watch(isHighlightSheetOpen, (open) => {
   opacity: 0.7;
 }
 
+.story-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.media-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+}
+
+.main-media {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.story-caption-bottom {
+  padding: 16px 24px;
+  background: #0c0c0c;
+  color: #ffffff;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.5;
+  border-top: 1px solid #1a1a1a;
+  word-break: break-word;
+  max-height: 120px;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .nav-btn { display: flex; align-items: center; justify-content: center; }
+  .nav-btn.prev { left: -60px; }
+  .nav-btn.next { right: -60px; }
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s;
+}
+
+.delete-btn:hover {
+  opacity: 0.7;
+}
+
+.delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Modal Confirmation */
 .confirm-modal-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.8);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -428,58 +590,6 @@ watch(isHighlightSheetOpen, (open) => {
 
 .btn-confirm-delete:hover, .btn-cancel:hover {
   background: rgba(255, 255, 255, 0.05);
-}
-
-.media-content {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  cursor: pointer;
-}
-
-.main-media {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.caption-overlay {
-  position: absolute;
-  bottom: 80px;
-  left: 0;
-  right: 0;
-  text-align: center;
-  color: white;
-  padding: 20px;
-  background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
-  font-size: 15px;
-}
-
-.nav-btn {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  cursor: pointer;
-  display: none;
-}
-
-@media (min-width: 768px) {
-  .nav-btn { display: flex; align-items: center; justify-content: center; }
-  .nav-btn.prev { left: -60px; }
-  .nav-btn.next { right: -60px; }
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
 }
 
 .highlight-btn {

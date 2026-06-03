@@ -117,7 +117,6 @@ defineExpose({ refresh: fetchStories });
         :user-id="userStoriesList[selectedUserIndex].userId"
         :username="userStoriesList[selectedUserIndex].username"
         :avatar_url="userStoriesList[selectedUserIndex].avatar_url"
-        :userId="userStoriesList[selectedUserIndex].userId"
         @close="closeStory"
         @next-user="handleNextUser"
         @prev-user="handlePrevUser"
