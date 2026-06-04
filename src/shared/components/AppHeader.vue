@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@/shared/composables/useAuth'
 import { searchUsersApi, type UserSearchItem } from '@/shared/api/users.api'
+import { getUserProfileApi } from '@/shared/api/users.api'
+import { useAuthStore } from '@/features/auth/store/auth.store'
+import { DEFAULT_AVATAR, resolveAvatar } from '@/shared/constants/avatar'
 
 const { user, isAuthenticated, logout } = useAuth()
+const authStore = useAuthStore()
 const router = useRouter()
 
 const keyword = ref('')
@@ -17,6 +21,13 @@ let searchTimer: ReturnType<typeof setTimeout> | null = null
 const showResultPanel = computed(() => {
   const hasKeyword = keyword.value.trim().length > 0
   return hasKeyword && (isSearching.value || searchError.value.length > 0 || results.value.length > 0)
+})
+
+const userInitial = computed(() => (user.value?.username || user.value?.fullName || 'U')[0]?.toUpperCase())
+const headerAvatarUrl = computed(() => resolveAvatar(user.value?.avatarUrl))
+
+onMounted(() => {
+  syncCurrentUserProfile()
 })
 
 watch(keyword, (value) => {
@@ -52,6 +63,27 @@ function openUserProfile(userId: number): void {
   keyword.value = ''
   results.value = []
   router.push(`/users/${userId}`)
+}
+
+function onUserAvatarError(event: Event) {
+  const image = event.target as HTMLImageElement
+  image.src = DEFAULT_AVATAR
+}
+
+async function syncCurrentUserProfile(): Promise<void> {
+  const currentUserId = Number(authStore.userId)
+  if (!Number.isFinite(currentUserId) || currentUserId <= 0) return
+
+  try {
+    const profile = await getUserProfileApi(currentUserId)
+    authStore.updateUserProfile({
+      username: profile.username,
+      fullName: profile.full_name || profile.username,
+      avatarUrl: profile.avatar_url ?? '',
+    })
+  } catch {
+    // Header can still render the locally stored user when profile sync is unavailable.
+  }
 }
 </script>
 
@@ -95,7 +127,16 @@ function openUserProfile(userId: number): void {
 
       <div class="right-zone" v-if="isAuthenticated">
         <div class="user-chip">
-          <span class="user-avatar">{{ (user?.username || user?.fullName || 'U')[0]?.toUpperCase() }}</span>
+          <span class="user-avatar">
+            <img
+              v-if="user?.avatarUrl"
+              class="user-avatar-image"
+              :src="headerAvatarUrl"
+              alt=""
+              @error="onUserAvatarError"
+            />
+            <span v-else class="user-avatar-initial">{{ userInitial }}</span>
+          </span>
           <span class="user-name">{{ user?.username || user?.fullName }}</span>
         </div>
         <button class="button secondary logout" type="button" @click="logout">
@@ -301,6 +342,17 @@ function openUserProfile(userId: number): void {
   font-weight: 700;
   display: grid;
   place-items: center;
+  overflow: hidden;
+}
+
+.user-avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.user-avatar-initial {
+  line-height: 1;
 }
 
 .user-name {
