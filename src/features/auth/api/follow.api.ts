@@ -40,3 +40,15 @@ export async function getMyFollowing(userId: number) {
   const res = await http.get(`/users/${userId}/following`, { params: { page: 1, limit: 100 } })
   return res.data.data.items as Array<{ id: string | number }>
 }
+
+export interface FollowSuggestion {
+  id: number
+  username: string
+  avatar_url: string | null
+  score: number
+}
+
+export async function getFollowSuggestions() {
+  const res = await http.get('/follow/suggestions')
+  return res.data.data.items as FollowSuggestion[]
+}
