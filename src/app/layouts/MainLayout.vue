@@ -33,25 +33,27 @@ const isWideContentRoute = computed(() => isChatRoute.value || isNotificationsRo
 <style scoped>
 .layout-container {
   min-height: 100vh;
-  padding: 0 0 32px;
+  padding: 0 0 40px;
 }
 
 .shell {
   width: 100%;
-  margin: 0;
+  max-width: var(--layout-max);
+  margin: 0 auto;
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) 280px;
-  gap: 28px;
+  grid-template-columns: var(--layout-sidebar) minmax(0, var(--layout-main)) var(--layout-rail);
+  gap: var(--layout-gap);
   align-items: start;
+  padding: 0 var(--layout-pad-x);
 }
 
 .shell--wide {
-  grid-template-columns: 200px minmax(0, 1fr);
+  grid-template-columns: var(--layout-sidebar) minmax(0, var(--layout-main)) var(--layout-rail);
 }
 
 .right-rail {
   position: sticky;
-  top: 92px;
+  top: 96px;
   display: grid;
   gap: 18px;
 }
@@ -61,28 +63,38 @@ const isWideContentRoute = computed(() => isChatRoute.value || isNotificationsRo
 }
 
 :global(body.profile-view .shell) {
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: var(--layout-sidebar) minmax(0, var(--layout-main)) var(--layout-rail);
 }
 
 .content {
   min-height: 74vh;
   width: 100%;
+  max-width: var(--layout-main);
+  justify-self: stretch;
+}
+
+.shell--wide .content,
+:global(body.profile-view .content) {
+  grid-column: 2;
 }
 
 
 @media (max-width: 1100px) {
   .shell {
-    grid-template-columns: 200px minmax(0, 1fr) 280px;
+    grid-template-columns: 220px minmax(0, 1fr) 300px;
+    gap: 22px;
+    padding: 0 18px;
   }
 }
 
 @media (max-width: 980px) {
   .shell {
     grid-template-columns: 1fr;
+    padding: 0 14px 88px;
   }
 
   .right-rail {
-    position: static;
+    display: none;
   }
 }
 </style>

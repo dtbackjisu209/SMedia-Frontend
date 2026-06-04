@@ -98,8 +98,10 @@ async function followSuggestion(userId: number) {
 
 <style scoped>
 .rail-card {
-  padding: 16px;
-  border-radius: var(--radius-lg);
+  padding: 18px;
+  border-radius: var(--radius-xl);
+  border-color: rgba(221, 227, 234, 0.92);
+  box-shadow: 0 14px 34px rgba(17, 24, 39, 0.07);
 }
 
 .rail-head {
@@ -112,7 +114,7 @@ async function followSuggestion(userId: number) {
 
 .follow-list {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .follow-item {
@@ -120,6 +122,7 @@ async function followSuggestion(userId: number) {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
+  min-height: 44px;
 }
 
 .follow-item--loading {
@@ -131,8 +134,8 @@ async function followSuggestion(userId: number) {
 }
 
 .avatar {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   object-fit: cover;
   background: var(--primary-soft);
@@ -150,17 +153,21 @@ async function followSuggestion(userId: number) {
 }
 
 .follow-btn {
-  border: 1px solid rgba(28, 98, 214, 0.4);
+  border: 1px solid rgba(37, 99, 235, 0.36);
   background: #fff;
   color: var(--primary);
   border-radius: 999px;
-  padding: 6px 12px;
-  font-weight: 600;
+  padding: 7px 14px;
+  font-weight: 750;
   cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
 }
 
 .follow-btn:hover:not(:disabled) {
-  background: var(--primary-soft);
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  transform: translateY(-1px);
 }
 
 .follow-btn:disabled {
@@ -170,7 +177,7 @@ async function followSuggestion(userId: number) {
 
 .name {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 750;
   color: var(--text);
   margin: 0;
   overflow: hidden;

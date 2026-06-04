@@ -220,12 +220,13 @@ async function confirmDeletePost(): Promise<void> {
 <style scoped>
 .feed-wrap {
   display: grid;
-  gap: 10px;
+  gap: 14px;
 }
 
 .feed-title {
   width: 100%;
   margin: 0;
+  padding: 0 2px;
 }
 
 .list {
@@ -233,18 +234,26 @@ async function confirmDeletePost(): Promise<void> {
   padding: 0;
   list-style: none;
   display: grid;
-  gap: 16px;
+  gap: 20px;
 }
 
 .item {
-  padding: 14px;
+  padding: 18px;
   overflow: hidden;
   display: grid;
-  gap: 10px;
+  gap: 14px;
   cursor: pointer;
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-soft);
+  border-color: rgba(221, 227, 234, 0.92);
+  box-shadow: 0 14px 34px rgba(17, 24, 39, 0.07);
   width: 100%;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.item:hover {
+  transform: translateY(-2px);
+  border-color: rgba(37, 99, 235, 0.18);
+  box-shadow: 0 20px 44px rgba(17, 24, 39, 0.10);
 }
 
 .item-head {
@@ -261,8 +270,8 @@ async function confirmDeletePost(): Promise<void> {
 }
 
 .avatar {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: var(--primary-soft);
   color: var(--primary);
@@ -283,7 +292,8 @@ async function confirmDeletePost(): Promise<void> {
 }
 
 .author {
-  font-size: 14px;
+  font-size: 15px;
+  letter-spacing: 0;
 }
 
 .time {
@@ -294,7 +304,7 @@ async function confirmDeletePost(): Promise<void> {
 /* ── Media ────────────────────────────────────────────────────────────────── */
 .media-box {
   width: 100%;
-  border-radius: 18px;
+  border-radius: 20px;
   overflow: hidden;
   background: #0a0a0a;
   display: flex;
@@ -319,7 +329,8 @@ async function confirmDeletePost(): Promise<void> {
 .content {
   margin: 0;
   padding: 0;
-  line-height: 1.65;
+  line-height: 1.62;
+  font-size: 15px;
   white-space: pre-wrap;
 }
 
@@ -331,16 +342,16 @@ async function confirmDeletePost(): Promise<void> {
 
 .actions {
   display: flex;
-  gap: 14px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(226, 232, 240, 0.8);
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(221, 227, 234, 0.82);
 }
 
 .action {
   border: none;
-  background: transparent;
-  border-radius: 8px;
-  padding: 6px 4px;
+  background: #f8fafc;
+  border-radius: 999px;
+  padding: 8px 12px;
   cursor: pointer;
   font: inherit;
   font-size: 12px;
@@ -364,6 +375,10 @@ async function confirmDeletePost(): Promise<void> {
 .action:hover .action-icon,
 .action:hover .action-count {
   color: var(--primary);
+}
+
+.action:hover {
+  background: var(--primary-soft);
 }
 
 .action-icon--active {

@@ -125,7 +125,7 @@ function onAvatarError(event: Event) {
 <style scoped>
 .notify-wrap {
   display: grid;
-  gap: 12px;
+  gap: 18px;
 }
 
 .notify-head {
@@ -133,6 +133,7 @@ function onAvatarError(event: Event) {
   align-items: baseline;
   justify-content: space-between;
   gap: 1rem;
+  padding: 0 2px;
 }
 
 .mark-all-btn {
@@ -142,8 +143,16 @@ function onAvatarError(event: Event) {
   color: var(--text);
   font: inherit;
   font-weight: 600;
-  padding: 8px 12px;
+  padding: 10px 14px;
   cursor: pointer;
+  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.04);
+  transition: border-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+.mark-all-btn:hover {
+  border-color: rgba(37, 99, 235, 0.32);
+  color: var(--primary);
+  transform: translateY(-1px);
 }
 
 .list {
@@ -151,15 +160,24 @@ function onAvatarError(event: Event) {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .item {
-  padding: 12px;
+  padding: 16px;
   display: grid;
-  grid-template-columns: 42px 1fr auto;
-  gap: 10px;
+  grid-template-columns: 50px 1fr auto;
+  gap: 14px;
   align-items: center;
+  border-radius: var(--radius-xl);
+  border-color: rgba(221, 227, 234, 0.9);
+  box-shadow: 0 12px 28px rgba(17, 24, 39, 0.06);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 38px rgba(17, 24, 39, 0.09);
 }
 
 .clickable {
@@ -167,13 +185,13 @@ function onAvatarError(event: Event) {
 }
 
 .unread {
-  border-color: #cde7ff;
-  background: #f8fcff;
+  border-color: rgba(37, 99, 235, 0.24);
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.055), #fff 42%);
 }
 
 .avatar {
-  width: 42px;
-  height: 42px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   background: var(--story-ring);
   position: relative;
@@ -206,10 +224,13 @@ function onAvatarError(event: Event) {
   margin-bottom: 4px;
   font-weight: 700;
   color: var(--primary);
+  letter-spacing: 0;
 }
 
 .content {
   margin: 0 0 4px;
+  font-size: 15px;
+  line-height: 1.45;
 }
 
 .actions {
@@ -242,8 +263,8 @@ function onAvatarError(event: Event) {
 }
 
 .dot {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   background: var(--primary);
 }
