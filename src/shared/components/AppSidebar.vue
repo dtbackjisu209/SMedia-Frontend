@@ -92,9 +92,9 @@ function openCreatePost() {
   flex-direction: column;
   gap: 18px;
   position: sticky;
-  top: 92px;
+  top: 96px;
   height: calc(100vh - 120px);
-  padding: 8px 4px 12px;
+  padding: 6px 0 12px;
 }
 
 .nav {
@@ -104,16 +104,16 @@ function openCreatePost() {
 }
 
 .item {
-  border-radius: 14px;
-  padding: 10px 12px;
+  border-radius: 18px;
+  padding: 12px 14px;
   color: var(--text);
-  font-weight: 600;
+  font-weight: 700;
   display: flex;
   align-items: center;
   gap: 12px;
   border: 1px solid transparent;
   background: transparent;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
 }
 
 .label-wrap {
@@ -137,25 +137,35 @@ function openCreatePost() {
 }
 
 .item:hover {
-  background: #f8fafc;
+  background: rgba(255, 255, 255, 0.78);
+  border-color: rgba(221, 227, 234, 0.86);
+  box-shadow: 0 10px 24px rgba(17, 24, 39, 0.06);
   transform: translateY(-1px);
   text-decoration: none;
 }
 
 .active {
-  background: var(--primary-soft);
-  border-color: rgba(28, 98, 214, 0.25);
+  background: #fff;
+  border-color: rgba(37, 99, 235, 0.22);
+  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.10);
+  color: var(--primary-dark);
 }
 
 .icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 14px;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(226, 232, 240, 0.9);
+  border: 1px solid rgba(221, 227, 234, 0.9);
   background: #fff;
   color: var(--muted);
+}
+
+.active .icon {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
 }
 
 .icon svg {
@@ -172,7 +182,8 @@ function openCreatePost() {
   width: 100%;
   border-radius: 999px;
   border: none;
-  padding: 12px 16px;
+  min-height: 52px;
+  padding: 13px 18px;
   background: linear-gradient(135deg, var(--primary), #2b7cf6);
   color: #fff;
   font-weight: 700;
@@ -208,6 +219,7 @@ function openCreatePost() {
     flex-direction: row;
     justify-content: space-around;
     background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(18px);
     border-top: 1px solid var(--border);
     padding: 10px 8px;
     height: auto;
@@ -231,7 +243,7 @@ function openCreatePost() {
     padding: 6px;
     border: none;
     border-radius: 10px;
-    min-width: 80px;
+    min-width: 74px;
   }
 
   .label-wrap {

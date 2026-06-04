@@ -137,17 +137,17 @@ defineExpose({ refresh: fetchStories });
 
 <style scoped>
 .stories-bar-container {
-  padding: 16px;
-  background: #fff;
-  border-radius: var(--radius-lg);
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: var(--shadow-soft);
-  margin-bottom: 18px;
+  padding: 18px 20px;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(221, 227, 234, 0.92);
+  box-shadow: 0 14px 34px rgba(17, 24, 39, 0.07);
+  margin-bottom: 22px;
 }
 
 .flex { display: flex; }
 .items-center { align-items: center; }
-.gap-4 { gap: 16px; }
+.gap-4 { gap: 18px; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -156,10 +156,14 @@ defineExpose({ refresh: fetchStories });
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   cursor: pointer;
   width: 68px;
-  transition: transform 0.1s ease;
+  transition: transform 0.16s ease;
+}
+
+.story-item-custom:hover {
+  transform: translateY(-2px);
 }
 
 .story-item-custom:active {
@@ -168,8 +172,8 @@ defineExpose({ refresh: fetchStories });
 
 .avatar-wrapper {
   position: relative;
-  width: 64px;
-  height: 64px;
+  width: 68px;
+  height: 68px;
   border-radius: 50%;
 }
 
@@ -177,7 +181,7 @@ defineExpose({ refresh: fetchStories });
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  border: 1px solid rgba(226, 232, 240, 0.9);
+  border: 1px solid rgba(221, 227, 234, 0.92);
   padding: 3px;
   background: #fff;
   overflow: hidden;
@@ -206,8 +210,8 @@ defineExpose({ refresh: fetchStories });
   position: absolute;
   bottom: 2px;
   right: 2px;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   background: var(--primary);
   color: #fff;
   border-radius: 50%;
@@ -219,6 +223,7 @@ defineExpose({ refresh: fetchStories });
 
 .story-label {
   font-size: 12px;
+  font-weight: 650;
   color: var(--muted);
   text-align: center;
   max-width: 70px;
@@ -239,7 +244,7 @@ defineExpose({ refresh: fetchStories });
 
 .dark-text {
   color: #1f2937;
-  font-weight: 400;
+  font-weight: 650;
 }
 
 /* Skeleton */

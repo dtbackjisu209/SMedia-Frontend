@@ -1,25 +1,31 @@
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 
 :root {
-  --bg: #f4f7fb;
+  --bg: #f3f5f8;
   --surface: #ffffff;
-  --surface-soft: #f7f9fc;
-  --text: #0f172a;
-  --muted: #64748b;
-  --border: #e2e8f0;
-  --primary: #1c62d6;
-  --primary-dark: #184fb0;
-  --primary-soft: #e7efff;
+  --surface-soft: #f8fafc;
+  --text: #111827;
+  --muted: #667085;
+  --border: #dde3ea;
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --primary-soft: #eaf1ff;
   --success: #22c55e;
   --danger: #e11d48;
-  --shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
-  --shadow-soft: 0 10px 24px rgba(15, 23, 42, 0.06);
-  --ring: 0 0 0 3px rgba(28, 98, 214, 0.15);
-  --radius-lg: 16px;
-  --radius-xl: 22px;
-  --story-ring: linear-gradient(135deg, #ffd08a 0%, #ff7b6b 40%, #6a7bff 100%);
+  --shadow: 0 22px 50px rgba(17, 24, 39, 0.10);
+  --shadow-soft: 0 12px 30px rgba(17, 24, 39, 0.07);
+  --ring: 0 0 0 4px rgba(37, 99, 235, 0.14);
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --story-ring: conic-gradient(from 180deg, #f97316, #ef4444, #8b5cf6, #2563eb, #f97316);
   --font-sans: 'Manrope', 'Segoe UI', sans-serif;
   --font-display: 'Space Grotesk', 'Segoe UI', sans-serif;
+  --layout-max: 1480px;
+  --layout-sidebar: 255px;
+  --layout-main: 900px;
+  --layout-rail: 320px;
+  --layout-gap: 32px;
+  --layout-pad-x: 28px;
 
   font-family: var(--font-sans);
   line-height: 1.5;
@@ -35,9 +41,12 @@ body {
   margin: 0;
   min-width: 320px;
   background:
-    radial-gradient(circle at 10% 6%, rgba(28, 98, 214, 0.12), transparent 40%),
-    radial-gradient(circle at 85% 0%, rgba(255, 200, 145, 0.2), transparent 45%),
-    linear-gradient(180deg, #f7f9fe 0%, #f2f5fb 100%);
+    linear-gradient(90deg, rgba(37, 99, 235, 0.07), transparent 28%),
+    linear-gradient(270deg, rgba(249, 115, 22, 0.07), transparent 30%),
+    #f3f5f8;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
 }
 
 #app {
@@ -56,12 +65,12 @@ a {
 }
 
 a:hover {
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 .card {
   background: var(--surface);
-  border: 1px solid rgba(226, 232, 240, 0.9);
+  border: 1px solid rgba(221, 227, 234, 0.9);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-soft);
 }
@@ -114,18 +123,20 @@ a:hover {
 .button.secondary {
   background: #fff;
   color: var(--text);
-  border-color: rgba(148, 163, 184, 0.45);
+  border-color: rgba(148, 163, 184, 0.36);
   box-shadow: none;
 }
 
 .button.secondary:hover {
   background: #f8fafc;
+  border-color: rgba(37, 99, 235, 0.28);
 }
 
 .section-title {
   margin: 0 0 12px;
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 750;
+  letter-spacing: 0;
 }
 
 .muted {

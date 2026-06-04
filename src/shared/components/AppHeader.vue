@@ -152,34 +152,36 @@ async function syncCurrentUserProfile(): Promise<void> {
   position: sticky;
   top: 0;
   z-index: 20;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
-  background: rgba(247, 249, 252, 0.88);
-  backdrop-filter: blur(14px);
-  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(221, 227, 234, 0.82);
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(18px);
+  margin-bottom: 24px;
 }
 
 .inner {
   width: 100%;
-  margin: 0;
+  max-width: var(--layout-max);
+  margin: 0 auto;
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) auto;
-  gap: 24px;
+  grid-template-columns: var(--layout-sidebar) minmax(0, var(--layout-main)) var(--layout-rail);
+  gap: var(--layout-gap);
   align-items: center;
-  padding: 14px 24px;
+  padding: 16px var(--layout-pad-x);
 }
 
 .brand {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  transform: translateX(16px);
 }
 
 .title {
   margin: 0;
-  font-family: var(--font-display);
+  font-family: var(--font-sans);
   font-size: 26px;
-  font-weight: 700;
-  letter-spacing: -0.5px;
+  font-weight: 800;
+  letter-spacing: 0;
 }
 
 .subtitle {
@@ -191,18 +193,24 @@ async function syncCurrentUserProfile(): Promise<void> {
 }
 
 .search-box {
-  max-width: 440px;
+  max-width: 100%;
   width: 100%;
-  justify-self: center;
+  justify-self: stretch;
   position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
   background: #fff;
   border-radius: 999px;
-  padding: 10px 14px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: var(--shadow-soft);
+  padding: 12px 16px;
+  border: 1px solid rgba(221, 227, 234, 0.94);
+  box-shadow: 0 12px 30px rgba(17, 24, 39, 0.06);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.search-box:focus-within {
+  border-color: rgba(37, 99, 235, 0.42);
+  box-shadow: var(--ring), 0 16px 34px rgba(17, 24, 39, 0.08);
 }
 
 .search-icon {
@@ -230,7 +238,7 @@ async function syncCurrentUserProfile(): Promise<void> {
   right: 0;
   background: #fff;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 18px;
   box-shadow: var(--shadow);
   max-height: 280px;
   overflow-y: auto;
@@ -258,12 +266,12 @@ async function syncCurrentUserProfile(): Promise<void> {
   align-items: center;
   gap: 10px;
   padding: 8px;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
 }
 
 .search-item:hover {
-  background: #f8fafc;
+  background: #f6f8fb;
 }
 
 .search-user-avatar {
@@ -294,7 +302,9 @@ async function syncCurrentUserProfile(): Promise<void> {
 .right-zone {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 10px;
+  transform: translateX(16px);
 }
 
 .icon-btn {
@@ -326,15 +336,16 @@ async function syncCurrentUserProfile(): Promise<void> {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
+  padding: 6px 12px 6px 7px;
   border-radius: 999px;
   background: var(--surface-soft);
-  border: 1px solid rgba(226, 232, 240, 0.8);
+  border: 1px solid rgba(221, 227, 234, 0.9);
+  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.04);
 }
 
 .user-avatar {
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: var(--primary-soft);
   color: var(--primary);
@@ -356,8 +367,8 @@ async function syncCurrentUserProfile(): Promise<void> {
 }
 
 .user-name {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 750;
 }
 
 .logout {
@@ -369,7 +380,7 @@ async function syncCurrentUserProfile(): Promise<void> {
   .inner {
     grid-template-columns: 1fr auto;
     gap: 12px;
-    padding: 12px 0;
+    padding: 12px 16px;
   }
 
   .search-box {
@@ -384,6 +395,11 @@ async function syncCurrentUserProfile(): Promise<void> {
   .user-chip,
   .logout {
     display: none;
+  }
+
+  .brand,
+  .right-zone {
+    transform: none;
   }
 }
 </style>
