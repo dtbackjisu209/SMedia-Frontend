@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { io, type Socket } from 'socket.io-client'
 import { acceptFollowRequest, rejectFollowRequest } from '@/features/auth/api/follow.api'
+import { searchUsersApi } from '@/shared/api/users.api'
 import {
   clearReadNotificationsApi,
   fetchNotificationsApi,
@@ -18,6 +19,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
   const isLoading = ref(false)
   const unreadCount = ref(0)
   const toastTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  const avatarCache = new Map<string, string | null>()
   let socket: Socket | null = null
 
   function getTargetPath(type: string, referenceId?: number | string | null): string | null {
@@ -53,6 +55,63 @@ export const useNotificationsStore = defineStore('notifications', () => {
     return 'Activity'
   }
 
+  function getActorUsername(item: {
+    content: string
+    username?: string | null
+    actor_username?: string | null
+    sender_username?: string | null
+    user_username?: string | null
+    actor?: { username?: string | null } | null
+    sender?: { username?: string | null } | null
+    user?: { username?: string | null } | null
+  }): string | null {
+    return (
+      item.actor_username ??
+      item.sender_username ??
+      item.user_username ??
+      item.username ??
+      item.actor?.username ??
+      item.sender?.username ??
+      item.user?.username ??
+      item.content.match(/^@?([A-Za-z0-9_.-]+)\s/)?.[1] ??
+      null
+    )
+  }
+
+  async function hydrateMissingAvatars() {
+    const usernames = Array.from(
+      new Set(
+        notifications.value
+          .filter((item) => !item.actorAvatarUrl && item.actorUsername)
+          .map((item) => item.actorUsername as string),
+      ),
+    )
+
+    if (usernames.length === 0) return
+
+    await Promise.all(
+      usernames.map(async (username) => {
+        const cacheKey = username.toLowerCase()
+        if (avatarCache.has(cacheKey)) return
+
+        try {
+          const users = await searchUsersApi(username, 5)
+          const matchedUser = users.find((user) => user.username.toLowerCase() === cacheKey)
+          avatarCache.set(cacheKey, matchedUser?.avatar_url ?? null)
+        } catch {
+          avatarCache.set(cacheKey, null)
+        }
+      }),
+    )
+
+    notifications.value = notifications.value.map((item) => {
+      if (item.actorAvatarUrl || !item.actorUsername) return item
+
+      const avatarUrl = avatarCache.get(item.actorUsername.toLowerCase()) ?? null
+      return avatarUrl ? { ...item, actorAvatarUrl: avatarUrl } : item
+    })
+  }
+
   function dismissToast(toastId: string) {
     const timer = toastTimers.get(toastId)
     if (timer) {
@@ -82,6 +141,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
     isLoading.value = true
     try {
       notifications.value = await fetchNotificationsApi()
+      await hydrateMissingAvatars()
       unreadCount.value = await fetchNotificationSummaryApi()
     } finally {
       isLoading.value = false
@@ -148,17 +208,24 @@ export const useNotificationsStore = defineStore('notifications', () => {
       sender_avatar_url?: string | null
       user_avatar_url?: string | null
       actor?: {
+        username?: string | null
         avatar_url?: string | null
         avatarUrl?: string | null
       } | null
       sender?: {
+        username?: string | null
         avatar_url?: string | null
         avatarUrl?: string | null
       } | null
       user?: {
+        username?: string | null
         avatar_url?: string | null
         avatarUrl?: string | null
       } | null
+      username?: string | null
+      actor_username?: string | null
+      sender_username?: string | null
+      user_username?: string | null
       created_at: string
       is_read: boolean
     }) => {
@@ -167,6 +234,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
         type: item.type,
         content: item.content,
         referenceId: item.reference_id != null ? String(item.reference_id) : null,
+        actorUsername: getActorUsername(item),
         actorAvatarUrl:
           item.actor_avatar_url ??
           item.sender_avatar_url ??
@@ -186,6 +254,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
       }
 
       notifications.value = [normalized, ...notifications.value.filter((n) => n.id !== normalized.id)]
+      void hydrateMissingAvatars()
       unreadCount.value = notifications.value.filter((n) => !n.read).length
 
       if (normalized.type === 'message') {

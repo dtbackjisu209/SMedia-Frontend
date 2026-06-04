@@ -47,6 +47,7 @@ export interface NotificationItem {
   type: string
   content: string
   referenceId?: string | null
+  actorUsername?: string | null
   actorAvatarUrl?: string | null
   createdAt: string
   read: boolean

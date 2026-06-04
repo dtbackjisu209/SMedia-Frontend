@@ -6,19 +6,26 @@ type NotificationApiItem = {
   type: string
   content: string
   reference_id?: number | string | null
+  username?: string | null
+  actor_username?: string | null
+  sender_username?: string | null
+  user_username?: string | null
   avatar_url?: string | null
   actor_avatar_url?: string | null
   sender_avatar_url?: string | null
   user_avatar_url?: string | null
   actor?: {
+    username?: string | null
     avatar_url?: string | null
     avatarUrl?: string | null
   } | null
   sender?: {
+    username?: string | null
     avatar_url?: string | null
     avatarUrl?: string | null
   } | null
   user?: {
+    username?: string | null
     avatar_url?: string | null
     avatarUrl?: string | null
   } | null
@@ -64,12 +71,27 @@ function getNotificationKindLabel(type: string): string {
   return 'Activity'
 }
 
+function getNotificationActorUsername(item: NotificationApiItem): string | null {
+  return (
+    item.actor_username ??
+    item.sender_username ??
+    item.user_username ??
+    item.username ??
+    item.actor?.username ??
+    item.sender?.username ??
+    item.user?.username ??
+    item.content.match(/^@?([A-Za-z0-9_.-]+)\s/)?.[1] ??
+    null
+  )
+}
+
 function normalizeNotification(item: NotificationApiItem): NotificationItem {
   return {
     id: String(item.id),
     type: item.type,
     content: item.content,
     referenceId: item.reference_id != null ? String(item.reference_id) : null,
+    actorUsername: getNotificationActorUsername(item),
     actorAvatarUrl:
       item.actor_avatar_url ??
       item.sender_avatar_url ??
