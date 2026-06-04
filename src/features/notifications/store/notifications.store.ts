@@ -143,6 +143,22 @@ export const useNotificationsStore = defineStore('notifications', () => {
       type: string
       content: string
       reference_id?: number | string | null
+      avatar_url?: string | null
+      actor_avatar_url?: string | null
+      sender_avatar_url?: string | null
+      user_avatar_url?: string | null
+      actor?: {
+        avatar_url?: string | null
+        avatarUrl?: string | null
+      } | null
+      sender?: {
+        avatar_url?: string | null
+        avatarUrl?: string | null
+      } | null
+      user?: {
+        avatar_url?: string | null
+        avatarUrl?: string | null
+      } | null
       created_at: string
       is_read: boolean
     }) => {
@@ -151,6 +167,18 @@ export const useNotificationsStore = defineStore('notifications', () => {
         type: item.type,
         content: item.content,
         referenceId: item.reference_id != null ? String(item.reference_id) : null,
+        actorAvatarUrl:
+          item.actor_avatar_url ??
+          item.sender_avatar_url ??
+          item.user_avatar_url ??
+          item.avatar_url ??
+          item.actor?.avatar_url ??
+          item.actor?.avatarUrl ??
+          item.sender?.avatar_url ??
+          item.sender?.avatarUrl ??
+          item.user?.avatar_url ??
+          item.user?.avatarUrl ??
+          null,
         createdAt: item.created_at,
         read: Boolean(item.is_read),
         targetPath: getTargetPath(item.type, item.reference_id),

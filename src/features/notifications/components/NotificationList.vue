@@ -3,6 +3,7 @@ import dayjs from 'dayjs'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotificationsStore } from '@/features/notifications/store/notifications.store'
+import { DEFAULT_AVATAR, resolveAvatar } from '@/shared/constants/avatar'
 import type { NotificationItem } from '@/shared/types/social'
 
 const notificationsStore = useNotificationsStore()
@@ -39,6 +40,11 @@ async function handleDecline(item: NotificationItem) {
   } finally {
     actionLoadingId.value = null
   }
+}
+
+function onAvatarError(event: Event) {
+  const image = event.target as HTMLImageElement
+  image.src = DEFAULT_AVATAR
 }
 </script>
 
@@ -77,7 +83,14 @@ async function handleDecline(item: NotificationItem) {
         :class="{ unread: !item.read, clickable: Boolean(item.targetPath) }"
         @click="handleNotificationClick(item)"
       >
-        <span class="avatar"></span>
+        <span class="avatar">
+          <img
+            class="avatar-image"
+            :src="resolveAvatar(item.actorAvatarUrl)"
+            alt=""
+            @error="onAvatarError"
+          />
+        </span>
 
         <div class="meta">
           <small class="kind">{{ item.kindLabel }}</small>
@@ -172,6 +185,16 @@ async function handleDecline(item: NotificationItem) {
   inset: 2px;
   border-radius: 50%;
   background: #fff;
+}
+
+.avatar-image {
+  position: absolute;
+  inset: 4px;
+  z-index: 1;
+  width: calc(100% - 8px);
+  height: calc(100% - 8px);
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .meta {
