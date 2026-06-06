@@ -54,15 +54,34 @@ function closeCreateModal() {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(15, 23, 42, 0.58);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 50;
+  padding: 20px;
+  backdrop-filter: blur(10px);
 }
 
 .modal-card {
   width: 100%;
-  max-width: 500px;
+  max-width: 640px;
+  max-height: min(88vh, 820px);
+  overflow: auto;
+  padding: 0;
+  border-radius: 26px;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.28);
+}
+
+@media (max-width: 640px) {
+  .modal-backdrop {
+    align-items: flex-end;
+    padding: 12px;
+  }
+
+  .modal-card {
+    max-height: 92vh;
+    border-radius: 22px;
+  }
 }
 </style>
