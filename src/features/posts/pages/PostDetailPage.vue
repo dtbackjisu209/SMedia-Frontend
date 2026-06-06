@@ -103,6 +103,12 @@ function goBack() {
   router.back()
 }
 
+function openAuthorProfile() {
+  const authorId = Number(selectedPost.value?.author.id ?? 0)
+  if (!authorId) return
+  router.push(`/users/${authorId}`)
+}
+
 function goPreviousMedia() {
   if (!hasPrevious.value) return
   currentMediaIndex.value -= 1
@@ -185,7 +191,7 @@ async function toggleCurrentPostLike() {
       <div class="detail-main">
         <!-- Header -->
         <header class="head">
-          <div class="author-info">
+          <button type="button" class="author-info author-info--button" @click="openAuthorProfile">
             <div class="avatar">
               <img
                 :src="resolveAvatar(postsStore.selectedPost.author.avatarUrl)"
@@ -197,7 +203,7 @@ async function toggleCurrentPostLike() {
               <h2 class="section-title">{{ postsStore.selectedPost.author.fullName || postsStore.selectedPost.author.username }}</h2>
               <p class="muted time">{{ dayjs(postsStore.selectedPost.createdAt).format('HH:mm · DD/MM/YYYY') }}</p>
             </div>
-          </div>
+          </button>
 
           <!-- 3-dot menu (owner only) -->
           <div v-if="isOwner" class="more-wrap">
@@ -395,6 +401,20 @@ async function toggleCurrentPostLike() {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.author-info--button {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.author-info--button:hover .section-title {
+  color: var(--primary);
 }
 
 .avatar {

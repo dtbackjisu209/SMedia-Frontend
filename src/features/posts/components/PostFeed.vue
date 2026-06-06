@@ -13,7 +13,6 @@ const postsStore = usePostsStore()
 const authStore = useAuthStore()
 const followStore = useFollowStore()
 const router = useRouter()
-const followLoadingUserId = ref<number | null>(null)
 const followError = ref('')
 const deleteTargetPostId = ref<string | null>(null)
 const actionMessage = ref('')
@@ -37,6 +36,12 @@ function openPostDetail(postId: string) {
   router.push(`/posts/${postId}`)
 }
 
+function openAuthorProfile(post: Post) {
+  const id = authorId(post)
+  if (!id) return
+  router.push(`/users/${id}`)
+}
+
 function authorId(post: Post): number {
   return Number(post.author.id)
 }
@@ -48,57 +53,12 @@ function firstMedia(post: Post): Post['media'][number] | null {
   return sorted[0] ?? null
 }
 
-function canFollow(post: Post): boolean {
-  const id = authorId(post)
-  return Boolean(myUserId.value && id && id !== myUserId.value)
-}
-
-function isOwner(post: Post): boolean {
-  const authorNumericId = authorId(post)
-  return Boolean(myUserId.value && authorNumericId && authorNumericId === myUserId.value)
-}
-
-function followLabel(post: Post): string {
-  const id = authorId(post)
-  if (followStore.isFollowing(id)) return 'Following'
-  if (followStore.isPending(id)) return 'Requested'
-  return 'Follow'
-}
-
-async function toggleFollow(post: Post): Promise<void> {
-  const id = authorId(post)
-  if (!id || followLoadingUserId.value === id) return
-
-  followError.value = ''
-  followLoadingUserId.value = id
-
-  try {
-    await followStore.toggleFollow(id)
-  } catch (error) {
-    followError.value = error instanceof Error ? error.message : 'Follow action failed.'
-  } finally {
-    followLoadingUserId.value = null
-  }
-}
-
 async function togglePostLike(post: Post): Promise<void> {
   try {
     await postsStore.togglePostLike(post.id, post.isLiked)
   } catch {
     // Error state is already exposed through the store.
   }
-}
-
-function openEditPost(post: Post): void {
-  router.push({
-    path: `/posts/${post.id}`,
-    query: { action: 'edit' },
-  })
-}
-
-function openDeleteConfirm(post: Post): void {
-  actionMessage.value = ''
-  deleteTargetPostId.value = post.id
 }
 
 function closeDeleteConfirm(): void {
@@ -135,7 +95,11 @@ async function confirmDeletePost(): Promise<void> {
     <ul v-else class="list">
       <li v-for="post in postsStore.posts" :key="post.id" class="card item" @click="openPostDetail(post.id)">
         <header class="item-head">
-          <div class="author-wrap">
+          <button
+            type="button"
+            class="author-wrap author-wrap--button"
+            @click.stop="openAuthorProfile(post)"
+          >
             <img
               :src="resolveAvatar(post.author.avatarUrl)"
               :alt="post.author.fullName || post.author.username || 'Avatar'"
@@ -145,7 +109,7 @@ async function confirmDeletePost(): Promise<void> {
               <strong class="author">{{ post.author.fullName || post.author.username }}</strong>
               <p class="time muted">{{ dayjs(post.createdAt).format('HH:mm DD/MM/YYYY') }}</p>
             </div>
-          </div>
+          </button>
         </header>
 
         <template v-if="firstMedia(post)">
@@ -267,6 +231,20 @@ async function confirmDeletePost(): Promise<void> {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.author-wrap--button {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.author-wrap--button:hover .author {
+  color: var(--primary);
 }
 
 .avatar {

@@ -44,7 +44,13 @@
         @click="$emit('select', conv)"
       >
         <div class="tl-avatar" :class="conv.type === 'group' ? 'tl-avatar--group' : ''">
-          {{ initial(conv) }}
+          <img
+            v-if="avatarUrl(conv)"
+            :src="avatarUrl(conv) || ''"
+            :alt="label(conv)"
+            class="tl-avatar-img"
+          />
+          <span v-else>{{ initial(conv) }}</span>
         </div>
         <div class="tl-info">
           <div class="tl-row">
@@ -66,6 +72,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { Conversation } from '../store/chat.store'
+import { resolveAvatar } from '@/shared/constants/avatar'
 
 const props = defineProps<{
   conversations: Conversation[]
@@ -91,6 +98,12 @@ function label(conv: Conversation): string {
   if (conv.name) return conv.name
   const other = conv.members.find((m) => Number(m.user_id) !== Number(props.currentUserId))
   return other?.name || `Hội thoại #${conv.id}`
+}
+
+function avatarUrl(conv: Conversation): string | null {
+  if (conv.type === 'group') return null
+  const other = conv.members.find((m) => Number(m.user_id) !== Number(props.currentUserId))
+  return resolveAvatar(other?.avatar)
 }
 
 function initial(conv: Conversation) { return label(conv)?.[0]?.toUpperCase() || '?' }
@@ -188,6 +201,14 @@ function fmtTime(date?: string | null): string {
 }
 
 .tl-avatar--group { background: linear-gradient(135deg, #fde68a, #f59e0b); }
+
+.tl-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  display: block;
+}
 
 .tl-info { flex: 1; min-width: 0; }
 .tl-row { display: flex; justify-content: space-between; align-items: center; gap: 4px; }
