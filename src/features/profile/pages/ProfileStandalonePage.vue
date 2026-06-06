@@ -16,6 +16,7 @@ import ProfilePostGrid from '../components/ProfilePostGrid.vue'
 import StoryViewer from '@/features/stories/components/StoryViewer.vue'
 import StoryHighlightSheet from '@/features/stories/components/StoryHighlightSheet.vue'
 import { storiesApi, type MyStoryItem, type StoryHighlight, type UserActiveStoryItem } from '@/features/stories/api/stories'
+import { chatApi } from '@/features/chat/api/chat.api'
 import type {
   ProfileHighlight,
   ProfilePasswordPayload,
@@ -37,6 +38,7 @@ const saving = ref(false)
 const changingPassword = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
+const openingMessage = ref(false)
 const profile = ref<ProfileView | null>(null)
 const editOpen = ref(false)
 const followLoading = ref(false)
@@ -225,6 +227,44 @@ function handleOpenPost(postId: number) {
   void router.push(`/posts/${postId}`)
 }
 
+async function handleOpenMessage() {
+  if (!profile.value || isOwnProfile.value || openingMessage.value) return
+
+  const myId = normalizeViewerId(authStore.userId)
+  const targetUserId = normalizeViewerId(profile.value.id)
+
+  if (!myId || !targetUserId) {
+    errorMessage.value = 'Could not open chat for this profile.'
+    return
+  }
+
+  openingMessage.value = true
+  errorMessage.value = ''
+
+  try {
+    const data = await chatApi.getOrCreatePrivateChat(myId, targetUserId)
+    const conversationId = String(data?.conversationId ?? '')
+    if (!conversationId) {
+      errorMessage.value = 'Could not open chat for this profile.'
+      return
+    }
+
+    await router.push({
+      path: '/chat',
+      query: { conversationId },
+    })
+  } catch (error) {
+    console.error('[profile-standalone] handleOpenMessage failed', error)
+    if (axios.isAxiosError(error)) {
+      errorMessage.value = error.response?.data?.message || 'Could not open chat right now.'
+    } else {
+      errorMessage.value = 'Could not open chat right now.'
+    }
+  } finally {
+    openingMessage.value = false
+  }
+}
+
 function handleOpenHighlight(highlight: ProfileHighlight) {
   selectedHighlight.value = highlight
 }
@@ -332,10 +372,12 @@ onUnmounted(() => {
         :profile="profile"
         :is-own-profile="isOwnProfile"
         :follow-loading="followLoading"
+        :message-loading="openingMessage"
         :has-active-story="activeStories.length > 0"
         @edit-profile="editOpen = true"
         @open-story="handleOpenActiveStories"
         @toggle-follow="handleToggleFollow"
+        @message-profile="handleOpenMessage"
       />
 
       <ProfileHighlightStrip

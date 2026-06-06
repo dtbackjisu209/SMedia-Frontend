@@ -7,6 +7,7 @@ const props = defineProps<{
   profile: ProfileView
   isOwnProfile?: boolean
   followLoading?: boolean
+  messageLoading?: boolean
   hasActiveStory?: boolean
 }>()
 
@@ -14,6 +15,7 @@ const emit = defineEmits<{
   (e: 'edit-profile'): void
   (e: 'toggle-follow'): void
   (e: 'open-story'): void
+  (e: 'message-profile'): void
 }>()
 
 const joinedLabel = computed(() => {
@@ -95,7 +97,12 @@ function formatCount(n: number): string {
             >
               {{ relationshipLabel }}
             </button>
-            <button type="button" class="hero__btn hero__btn--secondary">
+            <button
+              type="button"
+              class="hero__btn hero__btn--secondary"
+              :disabled="messageLoading"
+              @click="emit('message-profile')"
+            >
               Message
             </button>
           </template>
