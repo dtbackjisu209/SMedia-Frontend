@@ -30,12 +30,6 @@ const activeHighlight = computed(() =>
   props.highlights.find((highlight) => highlight.id === activeHighlightId.value) ?? null,
 )
 
-const currentStory = computed(() =>
-  props.currentStoryId ? props.stories.find((story) => story.id === props.currentStoryId) ?? null : null,
-)
-
-const safeCurrentStoryUrl = computed(() => resolveMediaUrl(currentStory.value?.media_url))
-
 const selectedExistingHighlightIds = computed(() =>
   props.highlights
     .filter((highlight) => highlight.stories.some((story) => Number(story.id) === Number(props.currentStoryId)))
@@ -371,35 +365,21 @@ watch(
             </div>
 
             <div class="highlight-sheet__field">
-              <label>Chọn nơi lưu story này</label>
-              <div class="highlight-sheet__create-grid">
+              <label>Choose old stories</label>
+              <div v-if="normalizedStories.length" class="highlight-sheet__stories">
                 <button
+                  v-for="story in normalizedStories"
+                  :key="story.id"
                   type="button"
-                  class="highlight-sheet__create-card highlight-sheet__create-card--new"
-                  :disabled="saving"
-                  @click="handleCreate()"
+                  class="highlight-sheet__story"
+                  :class="{ 'highlight-sheet__story--selected': story.isSelected }"
+                  @click="toggleStorySelection(story.id)"
                 >
-                  <span class="highlight-sheet__create-plus">+</span>
-                  <strong>Tin nổi bật mới</strong>
-                </button>
-
-                <button
-                  v-for="highlight in highlights"
-                  :key="highlight.id"
-                  type="button"
-                  class="highlight-sheet__create-card"
-                  @click="handleQuickAddToHighlight(highlight)"
-                >
-                  <img
-                    v-if="resolveMediaUrl(highlight.cover_media_url)"
-                    :src="resolveMediaUrl(highlight.cover_media_url)"
-                    :alt="highlight.title"
-                    class="highlight-sheet__create-image"
-                  />
-                  <div v-else class="highlight-sheet__create-placeholder">+</div>
-                  <strong>{{ highlight.title }}</strong>
+                  <img :src="story.safe_media_url" :alt="`Story ${story.id}`" class="highlight-sheet__story-image" />
+                  <span class="highlight-sheet__story-check">{{ story.isSelected ? 'Selected' : 'Select' }}</span>
                 </button>
               </div>
+              <p v-else class="highlight-sheet__empty">No stories are available to highlight yet.</p>
             </div>
 
             <div class="highlight-sheet__actions">
@@ -459,9 +439,9 @@ watch(
                 type="button"
                 class="highlight-sheet__primary"
                 :disabled="saving"
-                @click="mode === 'create' ? handleCreate() : handleSaveEdit()"
+                @click="handleSaveEdit()"
               >
-                {{ saving ? 'Saving...' : mode === 'create' ? 'Create highlight' : 'Save changes' }}
+                {{ saving ? 'Saving...' : 'Save changes' }}
               </button>
             </div>
           </div>
@@ -544,6 +524,14 @@ watch(
   border-radius: 14px;
   background: rgba(34, 197, 94, 0.18);
   color: #bbf7d0;
+}
+
+.highlight-sheet__empty {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .highlight-sheet__new-card,
