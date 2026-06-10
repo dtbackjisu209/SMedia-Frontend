@@ -1,8 +1,4 @@
-import axios from 'axios'
-
-const http = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
-})
+import { http } from '@/shared/api/http'
 
 export type ChatSearchUser = {
   id: number
@@ -17,6 +13,14 @@ export type ChatConversationSettingsInput = {
   requesterId: number
   nickname?: string | null
   muteMode?: '1h' | '8h' | '24h' | 'forever' | 'unmute'
+}
+
+export type ChatMessagesPage<T> = {
+  items: T[]
+  page: number
+  limit: number
+  total: number
+  hasMore: boolean
 }
 
 export const chatApi = {
@@ -35,6 +39,9 @@ export const chatApi = {
         params: { limit, page, viewerUserId },
       })
       .then((r) => r.data.data),
+
+  markConversationRead: (conversationId: string | number, userId: number) =>
+    http.patch(`/conversations/${conversationId}/read`, { userId }).then((r) => r.data.data),
 
   getMembers: (conversationId: string | number) =>
     http.get(`/conversations/${conversationId}/members`).then((r) => r.data.data),
