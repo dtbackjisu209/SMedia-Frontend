@@ -13,6 +13,8 @@
       :conversation="store.activeConversation"
       :messages="store.messages"
       :is-loading="store.isLoadingMsgs"
+      :is-loading-older="store.isLoadingOlderMsgs"
+      :has-more-messages="store.hasMoreMessages"
       :is-typing="store.isTyping"
       :typing-text="store.typingText"
       :current-user-id="ME.id"
@@ -31,6 +33,7 @@
       @reply-message="handleReplyMessage"
       @react-message="store.toggleMessageReaction"
       @cancel-reply="store.clearReplyingTo"
+      @load-older="store.loadOlderMessages"
     />
 
     <Transition name="modal">

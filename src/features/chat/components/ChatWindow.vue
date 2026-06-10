@@ -18,7 +18,13 @@
       <div class="cw-header">
         <div class="cw-header-left">
           <div class="cw-avatar" :class="conversation.type === 'group' ? 'cw-avatar--group' : ''">
-            {{ initial }}
+            <img
+              v-if="headerAvatarUrl"
+              :src="headerAvatarUrl"
+              :alt="convName"
+              class="cw-avatar-img"
+            />
+            <span v-else>{{ initial }}</span>
           </div>
           <div>
             <p class="cw-name">{{ convName }}</p>
@@ -51,20 +57,45 @@
         </div>
       </div>
 
-      <div class="cw-messages" ref="msgEl">
+      <div class="cw-messages" ref="msgEl" @scroll="onMessagesScroll">
         <div v-if="isLoading" class="cw-loading">
           <div class="spinner"></div>
         </div>
         <template v-else>
+          <div v-if="hasMoreMessages || isLoadingOlder" class="cw-load-older">
+            <button
+              class="cw-load-older-btn"
+              type="button"
+              :disabled="isLoadingOlder"
+              @click="$emit('load-older')"
+            >
+              {{ isLoadingOlder ? 'Loading...' : 'Load older messages' }}
+            </button>
+          </div>
+
           <p v-if="messages.length === 0" class="cw-no-msgs">Send the first message!</p>
 
           <div
             v-for="msg in messages"
             :key="msg.id"
             class="msg"
-            :class="[msg.isOwn ? 'msg--own' : 'msg--other', { 'msg--with-reactions': Boolean(msg.reactions?.length) }]"
+            :class="[
+              msg.isOwn ? 'msg--own' : 'msg--other',
+              {
+                'msg--with-reactions': Boolean(msg.reactions?.length),
+                'msg--with-status': msg.isOwn && msg.id === lastOwnMessageId,
+              },
+            ]"
           >
-            <div v-if="!msg.isOwn" class="msg-av">{{ msg.sender_name?.[0]?.toUpperCase() }}</div>
+            <div v-if="!msg.isOwn" class="msg-av">
+              <img
+                v-if="messageAvatarUrl(msg)"
+                :src="messageAvatarUrl(msg) || ''"
+                :alt="msg.sender_name"
+                class="msg-av-img"
+              />
+              <span v-else>{{ msg.sender_name?.[0]?.toUpperCase() }}</span>
+            </div>
             <div class="msg-body">
               <span v-if="!msg.isOwn && conversation.type === 'group'" class="msg-sender">
                 {{ msg.sender_name }}
@@ -78,6 +109,9 @@
                   <p class="msg-text" :class="{ 'msg-text--recalled': msg.is_recalled }">{{ msg.content }}</p>
                   <span class="msg-time">{{ fmtTime(msg.created_at) }}</span>
                 </div>
+                <span v-if="msg.isOwn && msg.id === lastOwnMessageId" class="msg-status">
+                  {{ statusLabel(msg) }}
+                </span>
 
                 <div v-if="msg.reactions?.length" class="msg-reactions">
                   <button
@@ -176,6 +210,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import type { Conversation, Message, MessageReply } from '../store/chat.store'
+import { resolveAvatar, sanitizeBrowserAssetUrl } from '@/shared/constants/avatar'
 
 const props = defineProps<{
   conversation: Conversation | null
@@ -183,6 +218,8 @@ const props = defineProps<{
   isLoading: boolean
   isTyping: boolean
   typingText: string
+  isLoadingOlder?: boolean
+  hasMoreMessages?: boolean
   currentUserId: number
   isOtherOnline: boolean
   memberActionError?: string
@@ -202,6 +239,7 @@ const emit = defineEmits<{
   'reply-message': [payload: { messageId: string }]
   'react-message': [payload: { messageId: string; emoji: string }]
   'cancel-reply': []
+  'load-older': []
 }>()
 
 const draft = ref('')
@@ -209,6 +247,8 @@ const msgEl = ref<HTMLElement | null>(null)
 const openMenuId = ref<string | null>(null)
 const menuPlacementById = ref<Record<string, 'above' | 'below'>>({})
 const menuRefs = new Map<string, HTMLElement>()
+let previousFirstMessageId: string | null = null
+let previousLastMessageId: string | null = null
 
 const convName = computed(() => {
   if (!props.conversation) return ''
@@ -223,15 +263,60 @@ const convName = computed(() => {
 
 const initial = computed(() => convName.value?.[0]?.toUpperCase() || '?')
 
+const otherMember = computed(() => {
+  if (!props.conversation || props.conversation.type === 'group') return null
+  return props.conversation.members.find((m) => Number(m.user_id) !== Number(props.currentUserId)) ?? null
+})
+
+const headerAvatarUrl = computed(() => {
+  if (!props.conversation || props.conversation.type === 'group') return null
+  return resolveAvatar(otherMember.value?.avatar)
+})
+
+const lastOwnMessageId = computed(() => {
+  for (let index = props.messages.length - 1; index >= 0; index--) {
+    const message = props.messages[index]
+    if (message?.isOwn) return message.id
+  }
+  return null
+})
+
 watch(
   () => props.messages,
-  () => {
+  (nextMessages) => {
+    const firstMessageId = nextMessages[0]?.id ?? null
+    const lastMessageId = nextMessages[nextMessages.length - 1]?.id ?? null
+    const shouldStickToBottom = previousLastMessageId !== lastMessageId
+    const prependedOlderMessages =
+      previousFirstMessageId !== null &&
+      firstMessageId !== previousFirstMessageId &&
+      previousLastMessageId === lastMessageId
+
+    const previousScrollHeight = msgEl.value?.scrollHeight ?? 0
+    const previousScrollTop = msgEl.value?.scrollTop ?? 0
+
     nextTick(() => {
-      if (msgEl.value) msgEl.value.scrollTop = msgEl.value.scrollHeight
+      if (!msgEl.value) return
+
+      if (prependedOlderMessages) {
+        msgEl.value.scrollTop = msgEl.value.scrollHeight - previousScrollHeight + previousScrollTop
+      } else if (shouldStickToBottom) {
+        msgEl.value.scrollTop = msgEl.value.scrollHeight
+      }
+
+      previousFirstMessageId = firstMessageId
+      previousLastMessageId = lastMessageId
     })
   },
   { deep: true },
 )
+
+function onMessagesScroll() {
+  if (!msgEl.value || props.isLoadingOlder || !props.hasMoreMessages) return
+  if (msgEl.value.scrollTop <= 24) {
+    emit('load-older')
+  }
+}
 
 function send() {
   if (!draft.value.trim()) return
@@ -299,6 +384,14 @@ function handleReaction(messageId: string, emoji: string) {
   emit('react-message', { messageId, emoji })
 }
 
+function messageAvatarUrl(message: Message): string | null {
+  const directAvatar = sanitizeBrowserAssetUrl(message.sender_avatar)
+  if (directAvatar) return directAvatar
+
+  const member = props.conversation?.members.find((item) => Number(item.user_id) === Number(message.sender_id))
+  return resolveAvatar(member?.avatar)
+}
+
 function fmtTime(date?: string): string {
   if (!date) return ''
   const d = new Date(date)
@@ -307,6 +400,12 @@ function fmtTime(date?: string): string {
   if (diff === 0) return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
   if (diff === 1) return 'Hom qua'
   return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
+}
+
+function statusLabel(message: Message): string {
+  if (message.is_pending || message.delivery_status === 'sent') return 'Sent'
+  if (message.delivery_status === 'seen' || (message.read_by_user_ids?.length ?? 0) > 0) return 'Seen'
+  return 'Delivered'
 }
 
 function fmtMenuTime(date?: string): string {
@@ -410,6 +509,14 @@ function fmtMenuTime(date?: string): string {
   background: linear-gradient(135deg, #fde68a, #f59e0b);
 }
 
+.cw-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  display: block;
+}
+
 .cw-name {
   font-size: 0.9rem;
   font-weight: 700;
@@ -463,6 +570,29 @@ function fmtMenuTime(date?: string): string {
   margin: auto;
 }
 
+.cw-load-older {
+  display: flex;
+  justify-content: center;
+  padding: 0 0 10px;
+}
+
+.cw-load-older-btn {
+  border: 1px solid #efefef;
+  background: #fff;
+  color: #64748b;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cw-load-older-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
 .spinner {
   width: 24px;
   height: 24px;
@@ -501,6 +631,14 @@ function fmtMenuTime(date?: string): string {
   font-size: 0.68rem;
   font-weight: 700;
   color: #fff;
+}
+
+.msg-av-img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  display: block;
 }
 
 .msg-body {
@@ -619,6 +757,15 @@ function fmtMenuTime(date?: string): string {
   text-align: right;
 }
 
+.msg-status {
+  position: absolute;
+  right: 4px;
+  bottom: -15px;
+  font-size: 0.62rem;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
 .msg--own .msg-time {
   color: rgba(255, 255, 255, 0.6);
 }
@@ -711,6 +858,10 @@ function fmtMenuTime(date?: string): string {
 
 .msg--with-reactions {
   margin-bottom: 18px;
+}
+
+.msg--with-status {
+  margin-bottom: 17px;
 }
 
 .msg-reaction-pill {

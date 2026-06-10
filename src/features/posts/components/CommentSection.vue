@@ -47,9 +47,6 @@ const isAuthenticated = computed(() => authStore.isAuthenticated)
 const charCount = computed(() => newCommentText.value.length)
 const isOverLimit = computed(() => charCount.value > 2000)
 const currentUserAvatar = computed(() => authStore.user?.avatarUrl ?? '')
-const currentUserInitials = computed(() =>
-  getAvatarInitials(authStore.user?.fullName || authStore.user?.username || 'User'),
-)
 
 // Top-level comments (no parent)
 const topLevelComments = computed(() =>
@@ -158,15 +155,6 @@ function isOwner(comment: CommentItem): boolean {
 
 function formatTime(dateStr: string): string {
   return dayjs(dateStr).fromNow()
-}
-
-function getAvatarInitials(name: string): string {
-  return (name || '?')
-    .split(' ')
-    .map((w) => w[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
 }
 
 function handleKeydown(e: KeyboardEvent) {

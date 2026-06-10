@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { io, type Socket } from 'socket.io-client'
-import { chatApi } from '../api/chat.api'
+import { chatApi, type ChatMessagesPage } from '../api/chat.api'
 import { useNotificationsStore } from '@/features/notifications/store/notifications.store'
 
 export interface MessageReply {
@@ -19,14 +19,21 @@ export interface MessageReaction {
   user_ids: string[]
 }
 
+export type MessageDeliveryStatus = 'sent' | 'delivered' | 'seen'
+
 export interface Message {
   id: string
   conversation_id: string
   sender_id: string
   sender_name: string
+  sender_avatar?: string | null
   content: string
   created_at: string
   isOwn?: boolean
+  client_temp_id?: string | null
+  is_pending?: boolean
+  delivery_status?: MessageDeliveryStatus
+  read_by_user_ids?: string[]
   is_recalled?: boolean
   reply_to?: MessageReply | null
   reactions?: MessageReaction[]
@@ -56,6 +63,9 @@ export const useChatStore = defineStore('chat', () => {
   const activeId = ref<string | null>(null)
   const messages = ref<Message[]>([])
   const isLoadingMsgs = ref(false)
+  const isLoadingOlderMsgs = ref(false)
+  const hasMoreMessages = ref(false)
+  const messagePage = ref(1)
   const isTyping = ref(false)
   const typingText = ref('')
   const currentUserId = ref<number>(0)
@@ -98,16 +108,67 @@ export const useChatStore = defineStore('chat', () => {
 
   function normalizeMessage(message: Message): Message {
     const senderId = String(message.sender_id)
+    const isOwn = senderId === String(currentUserId.value)
     return {
       ...message,
       id: String(message.id),
+      client_temp_id: message.client_temp_id ? String(message.client_temp_id) : null,
       sender_id: senderId,
       conversation_id: String(message.conversation_id),
-      isOwn: senderId === String(currentUserId.value),
+      isOwn,
+      is_pending: Boolean(message.is_pending),
+      delivery_status: message.delivery_status ?? (isOwn ? 'delivered' : undefined),
+      read_by_user_ids: (message.read_by_user_ids ?? []).map((id) => String(id)),
       is_recalled: Boolean(message.is_recalled),
       reply_to: normalizeReply(message.reply_to),
       reactions: normalizeReactions(message.reactions),
     }
+  }
+
+  function createTempMessage(content: string): Message | null {
+    if (!activeId.value || !currentUserId.value) return null
+    const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+    return {
+      id: tempId,
+      client_temp_id: tempId,
+      conversation_id: activeId.value,
+      sender_id: String(currentUserId.value),
+      sender_name: currentUserName.value || 'You',
+      content,
+      created_at: new Date().toISOString(),
+      isOwn: true,
+      is_pending: true,
+      delivery_status: 'sent',
+      reply_to: replyingTo.value,
+      reactions: [],
+    }
+  }
+
+  function applyConversationRead(payload: { conversationId: string; userId: string | number; last_read_at?: string | Date | null; unreadCount?: number }) {
+    const conversationId = String(payload.conversationId)
+    const readerId = String(payload.userId)
+
+    if (readerId === String(currentUserId.value)) {
+      const conv = conversations.value.find((item) => item.id.toString() === conversationId)
+      if (conv) conv.unreadCount = Number(payload.unreadCount ?? 0)
+    }
+
+    if (conversationId !== activeId.value || readerId === String(currentUserId.value) || !payload.last_read_at) return
+
+    const readAt = new Date(payload.last_read_at).getTime()
+    if (!Number.isFinite(readAt)) return
+
+    messages.value = messages.value.map((message) => {
+      if (!message.isOwn || new Date(message.created_at).getTime() > readAt) return message
+
+      const readByUserIds = Array.from(new Set([...(message.read_by_user_ids ?? []), readerId]))
+      return {
+        ...message,
+        read_by_user_ids: readByUserIds,
+        delivery_status: 'seen',
+      }
+    })
   }
 
   function normalizeMembers(members: Member[]): Member[] {
@@ -122,6 +183,36 @@ export const useChatStore = defineStore('chat', () => {
     socket.emit('set_active_conversation', {
       conversationId: conversationId ?? null,
     })
+  }
+
+  function parseMessagesPage(data: Message[] | ChatMessagesPage<Message>): ChatMessagesPage<Message> {
+    if (Array.isArray(data)) {
+      return {
+        items: data,
+        page: 1,
+        limit: data.length,
+        total: data.length,
+        hasMore: false,
+      }
+    }
+
+    return data
+  }
+
+  async function markActiveConversationRead() {
+    if (!activeId.value || !currentUserId.value) return
+
+    try {
+      await chatApi.markConversationRead(activeId.value, currentUserId.value)
+      socket?.emit('mark_conversation_read', {
+        conversationId: activeId.value,
+        userId: currentUserId.value,
+      })
+      const conv = conversations.value.find((c) => c.id.toString() === activeId.value)
+      if (conv) conv.unreadCount = 0
+    } catch (error) {
+      console.error('[chat store] markActiveConversationRead', error)
+    }
   }
 
   function connect(userId: number, userName: string) {
@@ -141,13 +232,32 @@ export const useChatStore = defineStore('chat', () => {
     socket.on('new_message', (incoming: Message) => {
       const msg = normalizeMessage(incoming)
       if (msg.conversation_id === activeId.value) {
-        messages.value.push(msg)
+        const tempId = msg.client_temp_id
+        const tempIndex = tempId ? messages.value.findIndex((item) => item.id === tempId || item.client_temp_id === tempId) : -1
+        const existingIndex = messages.value.findIndex((item) => item.id === msg.id)
+
+        if (tempIndex >= 0) {
+          messages.value.splice(tempIndex, 1, {
+            ...msg,
+            is_pending: false,
+            delivery_status: msg.delivery_status ?? 'delivered',
+          })
+        } else if (existingIndex < 0) {
+          messages.value.push(msg)
+        }
       }
       const conv = conversations.value.find((c) => c.id.toString() === msg.conversation_id)
       if (conv) {
         conv.lastMessage = msg
-        if (msg.conversation_id !== activeId.value) conv.unreadCount++
+        if (msg.conversation_id !== activeId.value && !msg.isOwn) conv.unreadCount++
+        if (msg.conversation_id === activeId.value && !msg.isOwn) {
+          void markActiveConversationRead()
+        }
       }
+    })
+
+    socket.on('conversation_read', (payload: { conversationId: string; userId: string; last_read_at?: string | Date | null; unreadCount?: number }) => {
+      applyConversationRead(payload)
     })
 
     socket.on(
@@ -278,7 +388,7 @@ export const useChatStore = defineStore('chat', () => {
         lastMessage: c.lastMessage
           ? normalizeMessage(c.lastMessage)
           : null,
-        unreadCount: 0,
+        unreadCount: Number(c.unreadCount ?? 0),
         nickname: (c as { nickname?: string | null }).nickname ?? null,
         muted_until: (c as { muted_until?: string | null }).muted_until ?? null,
         muted_forever: Boolean((c as { muted_forever?: boolean }).muted_forever),
@@ -337,18 +447,45 @@ export const useChatStore = defineStore('chat', () => {
     isTyping.value = false
     typingText.value = ''
     isLoadingMsgs.value = true
+    messagePage.value = 1
+    hasMoreMessages.value = false
     try {
       await notificationsStore.markConversationMessagesRead(conversationId)
-      const data: Message[] = await chatApi.getMessages(conversationId, currentUserId.value)
-      messages.value = data.map((m) => normalizeMessage(m))
+      const data = parseMessagesPage(await chatApi.getMessages(conversationId, currentUserId.value))
+      messages.value = data.items.map((m) => normalizeMessage(m))
+      messagePage.value = data.page
+      hasMoreMessages.value = Boolean(data.hasMore)
       replyingTo.value = null
       await refreshActiveConversationMembers()
-      const conv = conversations.value.find((c) => c.id.toString() === conversationId)
-      if (conv) conv.unreadCount = 0
+      await markActiveConversationRead()
     } catch (e) {
       console.error('[chat store] openConversation', e)
     } finally {
       isLoadingMsgs.value = false
+    }
+  }
+
+  async function loadOlderMessages() {
+    if (!activeId.value || !currentUserId.value || isLoadingMsgs.value || isLoadingOlderMsgs.value || !hasMoreMessages.value) {
+      return
+    }
+
+    isLoadingOlderMsgs.value = true
+    try {
+      const nextPage = messagePage.value + 1
+      const data = parseMessagesPage(await chatApi.getMessages(activeId.value, currentUserId.value, 50, nextPage))
+      const existingIds = new Set(messages.value.map((message) => message.id))
+      const older = data.items
+        .map((m) => normalizeMessage(m))
+        .filter((message) => !existingIds.has(message.id))
+
+      messages.value = [...older, ...messages.value]
+      messagePage.value = data.page
+      hasMoreMessages.value = Boolean(data.hasMore)
+    } catch (error) {
+      console.error('[chat store] loadOlderMessages', error)
+    } finally {
+      isLoadingOlderMsgs.value = false
     }
   }
 
@@ -481,11 +618,20 @@ export const useChatStore = defineStore('chat', () => {
 
   function sendMessage(content: string) {
     if (!activeId.value || !content.trim()) return
+    const normalizedContent = content.trim()
+    const tempMessage = createTempMessage(normalizedContent)
+    if (tempMessage) {
+      messages.value.push(tempMessage)
+      const conv = conversations.value.find((c) => c.id.toString() === activeId.value)
+      if (conv) conv.lastMessage = tempMessage
+    }
+
     socket?.emit('send_message', {
       conversationId: activeId.value,
       senderId: currentUserId.value.toString(),
-      content,
+      content: normalizedContent,
       replyToMessageId: replyingTo.value?.id ?? null,
+      clientTempId: tempMessage?.client_temp_id ?? null,
     })
     replyingTo.value = null
     stopTyping()
@@ -513,6 +659,8 @@ export const useChatStore = defineStore('chat', () => {
     activeConversation,
     messages,
     isLoadingMsgs,
+    isLoadingOlderMsgs,
+    hasMoreMessages,
     isTyping,
     typingText,
     replyingTo,
@@ -523,6 +671,7 @@ export const useChatStore = defineStore('chat', () => {
     connect,
     disconnect,
     fetchConversations,
+    loadOlderMessages,
     refreshActiveConversationMembers,
     openConversation,
     startPrivateChat,
