@@ -36,3 +36,9 @@ export async function getUserProfileApi(userId: number): Promise<UserProfileItem
   const response = await http.get(`/users/${userId}`);
   return response.data?.data as UserProfileItem;
 }
+
+export async function recordSearchViewApi(userId: number, query?: string): Promise<void> {
+  await http.post(`/profile/users/${userId}/search-view`, {
+    query: query?.trim() || undefined,
+  });
+}
