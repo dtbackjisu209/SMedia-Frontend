@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@/shared/composables/useAuth'
-import { searchUsersApi, type UserSearchItem } from '@/shared/api/users.api'
+import { recordSearchViewApi, searchUsersApi, type UserSearchItem } from '@/shared/api/users.api'
 import { getUserProfileApi } from '@/shared/api/users.api'
 import { useAuthStore } from '@/features/auth/store/auth.store'
 import { DEFAULT_AVATAR, resolveAvatar } from '@/shared/constants/avatar'
@@ -59,9 +59,18 @@ onUnmounted(() => {
   if (searchTimer) clearTimeout(searchTimer)
 })
 
-function openUserProfile(userId: number): void {
+async function openUserProfile(userId: number): Promise<void> {
+  const searchKeyword = keyword.value.trim()
+
   keyword.value = ''
   results.value = []
+
+  try {
+    await recordSearchViewApi(userId, searchKeyword)
+  } catch (error) {
+    console.error('[header-search] recordSearchView failed', error)
+  }
+
   router.push(`/users/${userId}`)
 }
 
